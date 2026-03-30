@@ -4,7 +4,7 @@ providers = ["node"]
 nixPkgs = ["nodejs_22"]
 
 [phases.install]
-cmds = ["cd backend && npm ci"]
+cmds = ["cd backend && npm ci --ignore-engines"]
 
 [phases.build]
 cmds = ["cd backend && npx prisma generate && npm run build"]
