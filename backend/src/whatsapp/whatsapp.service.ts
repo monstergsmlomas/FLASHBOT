@@ -31,11 +31,10 @@ export class WhatsappService implements OnModuleInit {
 
   async onModuleInit() {
     waLog('=== WhatsappService iniciando ===');
-    // Siempre conectar al arrancar.
-    // Si ya hay sesión guardada en whatsapp-auth/, se reconecta sin pedir QR.
-    await this.connect();
-    // Iniciar loop de reintentos por mensajes perdidos por quota
+    // Conectar en background para no bloquear el arranque del servidor
+    // y no consumir memoria antes de que sea necesario
     this.startRetryInterval();
+    setTimeout(() => this.connect(), 5000);
   }
 
   async connect() {
