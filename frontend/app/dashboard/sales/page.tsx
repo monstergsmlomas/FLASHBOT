@@ -132,7 +132,7 @@ export default function SalesPage() {
   const balanceNeto = totalDay - totalGastos;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0a0a0f", padding: "32px 28px", fontFamily: "inherit" }}>
+    <div style={{ minHeight: "100vh", background: "#0a0a0f", fontFamily: "inherit" }} className="px-4 md:px-7 py-8 pb-24">
 
       {/* Ambient glows */}
       <div style={{ position: "fixed", top: "-10%", right: "0", width: "500px", height: "500px", background: "radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
@@ -154,7 +154,7 @@ export default function SalesPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <div className="flex flex-wrap gap-2 items-center">
             <button
               onClick={() => setShowGastoModal(true)}
               style={{ display: "flex", alignItems: "center", gap: "7px", padding: "0 18px", height: "40px", borderRadius: "10px", background: "transparent", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171", fontSize: "13px", fontWeight: 600, cursor: "pointer", transition: "all 0.2s" }}
@@ -206,59 +206,59 @@ export default function SalesPage() {
         {activeTab === "caja" && (
           <>
             {/* Stats row */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px", marginBottom: "24px" }}>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
 
               {/* Ingresos */}
-              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "16px", padding: "20px 22px", position: "relative", overflow: "hidden", transition: "all 0.2s" }}
+              <div className="min-w-0 overflow-hidden" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "16px", padding: "16px", position: "relative", transition: "all 0.2s" }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(34,197,94,0.3)"; e.currentTarget.style.boxShadow = "0 0 30px rgba(34,197,94,0.08)"; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; e.currentTarget.style.boxShadow = "none"; }}
               >
                 <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "2px", background: "linear-gradient(90deg, rgba(34,197,94,0.8), transparent)" }} />
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-                  <span style={{ fontSize: "12px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em" }}>Ingresos Hoy</span>
-                  <div style={{ width: "32px", height: "32px", borderRadius: "9px", background: "rgba(34,197,94,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <ArrowUpRight size={15} color="#22c55e" />
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+                  <span className="text-[10px] md:text-xs" style={{ fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>Ingresos Hoy</span>
+                  <div style={{ width: "28px", height: "28px", borderRadius: "9px", background: "rgba(34,197,94,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <ArrowUpRight size={13} color="#22c55e" />
                   </div>
                 </div>
-                <div style={{ fontSize: "32px", fontWeight: 800, color: "#22c55e", lineHeight: 1, textShadow: "0 0 20px rgba(34,197,94,0.4)" }}>{fmt(totalDay)}</div>
-                <p style={{ margin: "6px 0 0", fontSize: "12px", color: "#475569" }}>{sales.length} transacciones cobradas</p>
+                <div className="text-2xl md:text-3xl truncate" style={{ fontWeight: 800, color: "#22c55e", lineHeight: 1, textShadow: "0 0 20px rgba(34,197,94,0.4)" }}>{fmt(totalDay)}</div>
+                <p style={{ margin: "6px 0 0", fontSize: "11px", color: "#475569" }}>{sales.length} transacciones cobradas</p>
               </div>
 
               {/* Gastos */}
-              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "16px", padding: "20px 22px", position: "relative", overflow: "hidden", transition: "all 0.2s" }}
+              <div className="min-w-0 overflow-hidden" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "16px", padding: "16px", position: "relative", transition: "all 0.2s" }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(239,68,68,0.3)"; e.currentTarget.style.boxShadow = "0 0 30px rgba(239,68,68,0.08)"; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; e.currentTarget.style.boxShadow = "none"; }}
               >
                 <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "2px", background: "linear-gradient(90deg, rgba(239,68,68,0.8), transparent)" }} />
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-                  <span style={{ fontSize: "12px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em" }}>Gastos Hoy</span>
-                  <div style={{ width: "32px", height: "32px", borderRadius: "9px", background: "rgba(239,68,68,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <ArrowDownRight size={15} color="#ef4444" />
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+                  <span className="text-[10px] md:text-xs" style={{ fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>Gastos Hoy</span>
+                  <div style={{ width: "28px", height: "28px", borderRadius: "9px", background: "rgba(239,68,68,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <ArrowDownRight size={13} color="#ef4444" />
                   </div>
                 </div>
-                <div style={{ fontSize: "32px", fontWeight: 800, color: "#f87171", lineHeight: 1, textShadow: "0 0 20px rgba(239,68,68,0.3)" }}>{fmt(totalGastos)}</div>
-                <p style={{ margin: "6px 0 0", fontSize: "12px", color: "#475569" }}>0 egresos registrados</p>
+                <div className="text-2xl md:text-3xl truncate" style={{ fontWeight: 800, color: "#f87171", lineHeight: 1, textShadow: "0 0 20px rgba(239,68,68,0.3)" }}>{fmt(totalGastos)}</div>
+                <p style={{ margin: "6px 0 0", fontSize: "11px", color: "#475569" }}>0 egresos registrados</p>
               </div>
 
               {/* Balance */}
-              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "16px", padding: "20px 22px", position: "relative", overflow: "hidden", transition: "all 0.2s" }}
+              <div className="min-w-0 overflow-hidden col-span-2 md:col-span-1" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "16px", padding: "16px", position: "relative", transition: "all 0.2s" }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(59,130,246,0.3)"; e.currentTarget.style.boxShadow = "0 0 30px rgba(59,130,246,0.08)"; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; e.currentTarget.style.boxShadow = "none"; }}
               >
                 <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "2px", background: "linear-gradient(90deg, rgba(59,130,246,0.8), transparent)" }} />
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-                  <span style={{ fontSize: "12px", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em" }}>Balance Neto</span>
-                  <div style={{ width: "32px", height: "32px", borderRadius: "9px", background: "rgba(59,130,246,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <BarChart2 size={15} color="#3b82f6" />
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+                  <span className="text-[10px] md:text-xs" style={{ fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>Balance Neto</span>
+                  <div style={{ width: "28px", height: "28px", borderRadius: "9px", background: "rgba(59,130,246,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <BarChart2 size={13} color="#3b82f6" />
                   </div>
                 </div>
-                <div style={{ fontSize: "32px", fontWeight: 800, color: "#60a5fa", lineHeight: 1, textShadow: "0 0 20px rgba(59,130,246,0.4)" }}>{fmt(balanceNeto)}</div>
-                <p style={{ margin: "6px 0 0", fontSize: "12px", color: "#475569" }}>ingresos menos gastos</p>
+                <div className="text-2xl md:text-3xl truncate" style={{ fontWeight: 800, color: "#60a5fa", lineHeight: 1, textShadow: "0 0 20px rgba(59,130,246,0.4)" }}>{fmt(balanceNeto)}</div>
+                <p style={{ margin: "6px 0 0", fontSize: "11px", color: "#475569" }}>ingresos menos gastos</p>
               </div>
             </div>
 
             {/* Movements table */}
-            <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "16px", overflow: "hidden" }}>
+            <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "16px", overflow: "auto" }}>
 
               {/* Table toolbar */}
               <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
@@ -434,7 +434,7 @@ export default function SalesPage() {
             style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)", zIndex: 40 }}
           />
 
-          <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: "900px", maxWidth: "95vw", background: "#0d0d14", borderLeft: "1px solid rgba(255,255,255,0.08)", zIndex: 50, display: "flex", flexDirection: "column", boxShadow: "-20px 0 60px rgba(0,0,0,0.6)" }}>
+          <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: "900px", maxWidth: "100vw", background: "#0d0d14", borderLeft: "1px solid rgba(255,255,255,0.08)", zIndex: 50, display: "flex", flexDirection: "column", boxShadow: "-20px 0 60px rgba(0,0,0,0.6)" }}>
 
             {/* Drawer header */}
             <div style={{ padding: "22px 24px 18px", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -621,7 +621,7 @@ export default function SalesPage() {
             onClick={() => setShowGastoModal(false)}
             style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)", zIndex: 40 }}
           />
-          <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "420px", background: "#0d0d14", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "18px", zIndex: 50, boxShadow: "0 25px 80px rgba(0,0,0,0.7)", overflow: "hidden" }}>
+          <div className="w-full mx-4 max-w-md" style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", background: "#0d0d14", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "18px", zIndex: 50, boxShadow: "0 25px 80px rgba(0,0,0,0.7)", overflow: "hidden" }}>
             <div style={{ padding: "22px 24px 18px", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                 <div style={{ width: "34px", height: "34px", borderRadius: "10px", background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
