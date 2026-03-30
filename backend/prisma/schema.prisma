@@ -1,0 +1,267 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── TENANT (cada negocio) ───────────────────────────────────────────────────
+
+model Tenant {
+  id            String   @id @default(cuid())
+  name          String
+  businessType  String   // 'consultorio', 'peluqueria', 'tecnico', 'tienda'
+  whatsappPhone String?  // número de WhatsApp del negocio
+  isActive      Boolean  @default(true)
+  modules       String[] @default([]) // módulos activos: ["appointments", "sales"]
+  botConfig     Json?    // configuración del bot: labels, keywords, servicios
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]
+  customers     Customer[]
+  appointments  Appointment[]
+  businessHours BusinessHours[]
+  conversations ConversationState[]
+  templates     MessageTemplate[]
+  services      Service[]
+  employees     Employee[]
+  employeeServices EmployeeService[]
+  products      Product[]
+  sales         Sale[]
+}
+
+// ─── USER (admin/empleado del negocio) ───────────────────────────────────────
+
+model User {
+  id       String @id @default(cuid())
+  email    String @unique
+  password String
+  name     String
+  role     Role   @default(ADMIN)
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+// ─── CUSTOMER (paciente / cliente del negocio) ───────────────────────────────
+
+model Customer {
+  id         String  @id @default(cuid())
+  phone      String  // JID de WhatsApp (puede ser ID random de Meta, NO usar para wa.me)
+  realPhone  String? // teléfono real que declaró el paciente (usar para wa.me/ y contacto)
+  dni        String? // documento de identidad
+  address    String? // domicilio del paciente
+  name       String?
+  email      String?
+  notes      String?
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  appointments  Appointment[]
+  conversations ConversationState[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([phone, tenantId]) // un paciente único por negocio
+}
+
+// ─── SERVICE (servicio del negocio: corte, tinte, consulta...) ───────────────
+
+model Service {
+  id          String  @id @default(cuid())
+  name        String
+  durationMin Int     @default(30)
+  description String?
+  isActive    Boolean @default(true)
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  appointments Appointment[]
+  employees    EmployeeService[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([name, tenantId])
+}
+
+// ─── EMPLOYEE (profesional del negocio: peluquero, médico...) ────────────────
+
+model Employee {
+  id       String  @id @default(cuid())
+  name     String
+  isActive Boolean @default(true)
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  appointments Appointment[]
+  services     EmployeeService[]
+
+  createdAt DateTime @default(now())
+}
+
+// ─── EMPLOYEE × SERVICE (quién hace qué) ─────────────────────────────────────
+
+model EmployeeService {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  serviceId  String
+  service    Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, serviceId])
+}
+
+// ─── APPOINTMENT (turno) ─────────────────────────────────────────────────────
+
+model Appointment {
+  id           String            @id @default(cuid())
+  date         DateTime          // fecha y hora del turno
+  durationMin  Int               @default(30) // duración en minutos
+  status       AppointmentStatus @default(PENDING)
+  notes        String?
+  reminderSent Boolean           @default(false) // si ya se envió recordatorio
+
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  // Opcionales: para rubros con servicios y empleados (peluquería, etc.)
+  serviceId  String?
+  service    Service?  @relation(fields: [serviceId], references: [id])
+  employeeId String?
+  employee   Employee? @relation(fields: [employeeId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum AppointmentStatus {
+  PENDING    // esperando confirmación
+  CONFIRMED  // confirmado
+  CANCELLED  // cancelado
+  COMPLETED  // atendido
+}
+
+// ─── BUSINESS HOURS (horarios de atención) ───────────────────────────────────
+
+model BusinessHours {
+  id         String  @id @default(cuid())
+  dayOfWeek  Int     // 0=Domingo, 1=Lunes, ..., 6=Sábado
+  openTime   String  // mañana: "09:00"
+  closeTime  String  // mañana: "13:00"
+  openTime2  String? // tarde: "16:00" (null = sin turno partido)
+  closeTime2 String? // tarde: "20:00"
+  isOpen     Boolean @default(true)
+  slotMin    Int     @default(30)
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([dayOfWeek, tenantId])
+}
+
+// ─── PLANTILLAS DE MENSAJES DEL BOT ──────────────────────────────────────────
+
+model MessageTemplate {
+  id       String @id @default(cuid())
+  key      String // 'welcome', 'confirmed', 'reminder', 'cancelled', 'no_availability'
+  name     String // nombre visible: "Mensaje de bienvenida"
+  body     String // texto del mensaje (puede tener variables como {{nombre}}, {{fecha}})
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([key, tenantId])
+}
+
+// ─── PRODUCT (producto del kiosco/tienda) ────────────────────────────────────
+
+model Product {
+  id        String  @id @default(cuid())
+  name      String
+  price     Float   @default(0)
+  cost      Float   @default(0)
+  stock     Int     @default(-1) // -1 = sin control de stock
+  category  String?
+  barcode   String? // EAN-13, UPC-A, Code-128, etc.
+  isActive  Boolean @default(true)
+
+  tenantId  String
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  saleItems SaleItem[]
+
+  createdAt DateTime @default(now())
+  @@unique([name, tenantId])
+  @@unique([barcode, tenantId])
+}
+
+// ─── SALE (venta) ─────────────────────────────────────────────────────────────
+
+model Sale {
+  id        String     @id @default(cuid())
+  total     Float
+  notes     String?
+  items     SaleItem[]
+
+  tenantId  String
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+// ─── SALE ITEM (ítem de una venta) ───────────────────────────────────────────
+
+model SaleItem {
+  id        String  @id @default(cuid())
+  name      String  // snapshot del nombre al momento de vender
+  price     Float
+  quantity  Int     @default(1)
+  total     Float
+
+  saleId    String
+  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id])
+}
+
+// ─── CONVERSATION STATE (estado de la conversación del bot) ──────────────────
+
+model ConversationState {
+  id        String   @id @default(cuid())
+  phone     String
+  step      String   @default("IDLE") // paso actual del flujo
+  context   Json     @default("{}") // datos guardados durante la conversación
+  expiresAt DateTime // la conversación expira si el usuario no responde
+
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([phone, tenantId])
+}

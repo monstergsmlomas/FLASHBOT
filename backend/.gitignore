@@ -1,0 +1,21 @@
+# Dependencias
+node_modules/
+dist/
+
+# Variables de entorno (nunca subir al repo)
+.env
+.env.local
+.env.production
+
+# Sesión de WhatsApp — CRÍTICO: no borrar nunca en el servidor
+# Esta carpeta guarda la sesión escaneada. Si se sube al git
+# y el deploy la pisa, el cliente tendría que escanear el QR de nuevo.
+whatsapp-auth/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
