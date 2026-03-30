@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Html5Qrcode } from "html5-qrcode";
-import { X, Camera, Flashlight } from "lucide-react";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
+import { X, Camera } from "lucide-react";
 
 interface BarcodeScannerProps {
   onDetected: (barcode: string) => void;
@@ -23,41 +23,64 @@ export function BarcodeScanner({ onDetected, onClose, title = "Escanear código"
 
     const startScanner = async () => {
       try {
-        const scanner = new Html5Qrcode(containerId);
+        const scanner = new Html5Qrcode(containerId, {
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.ITF,
+            Html5QrcodeSupportedFormats.QR_CODE,
+          ],
+          verbose: false,
+        });
         scannerRef.current = scanner;
 
-        const cameras = await Html5Qrcode.getCameras();
-        if (!cameras || cameras.length === 0) {
-          setError("No se encontró ninguna cámara en el dispositivo.");
-          return;
-        }
-
-        // Preferir cámara trasera en móvil
-        const backCamera = cameras.find(c =>
-          c.label.toLowerCase().includes("back") ||
-          c.label.toLowerCase().includes("trasera") ||
-          c.label.toLowerCase().includes("environment")
-        ) ?? cameras[cameras.length - 1];
-
+        // Usar facingMode directamente — más confiable en móvil que getCameras()
         await scanner.start(
-          backCamera.id,
-          { fps: 10, qrbox: { width: 280, height: 160 } },
+          { facingMode: "environment" },
+          {
+            fps: 15,
+            qrbox: { width: 280, height: 140 },
+            aspectRatio: 1.5,
+          },
           (decodedText) => {
             if (stopped) return;
-            setLastScan(decodedText);
-            // Vibrar si el dispositivo lo soporta
             if (navigator.vibrate) navigator.vibrate(100);
             stopped = true;
             scanner.stop().then(() => onDetected(decodedText)).catch(() => onDetected(decodedText));
           },
-          () => {} // error de frame — ignorar
+          () => {} // ignorar errores de frame
         );
         setScanning(true);
       } catch (e: any) {
-        if (e?.message?.includes("permission") || e?.message?.includes("Permission")) {
+        const msg = e?.message ?? "";
+        if (msg.includes("permission") || msg.includes("Permission") || msg.includes("denied")) {
           setError("Permiso de cámara denegado. Permitilo desde la configuración del navegador.");
+        } else if (msg.includes("Overconstrained") || msg.includes("environment")) {
+          // Cámara trasera no disponible → intentar con cualquier cámara
+          try {
+            const scanner2 = new Html5Qrcode(containerId, { verbose: false });
+            scannerRef.current = scanner2;
+            await scanner2.start(
+              { facingMode: "user" },
+              { fps: 15, qrbox: { width: 250, height: 140 } },
+              (decodedText) => {
+                if (stopped) return;
+                if (navigator.vibrate) navigator.vibrate(100);
+                stopped = true;
+                scanner2.stop().then(() => onDetected(decodedText)).catch(() => onDetected(decodedText));
+              },
+              () => {}
+            );
+            setScanning(true);
+          } catch {
+            setError("No se pudo acceder a la cámara. Asegurate de dar permiso.");
+          }
         } else {
-          setError("No se pudo iniciar la cámara. Asegurate de usar HTTPS o localhost.");
+          setError("No se pudo iniciar la cámara. Intentá recargar la página.");
         }
       }
     };
