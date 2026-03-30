@@ -157,6 +157,7 @@ function StatCard({ stat, animate }: { stat: typeof STATS[0]; animate: boolean }
 export default function LandingPage() {
   const [scrolled, setScrolled]           = useState(false);
   const [statsVisible, setStatsVisible]   = useState(false);
+  const [menuOpen, setMenuOpen]           = useState(false);
   const statsRef = useRef<HTMLDivElement>(null);
 
   // Scroll navbar
@@ -263,6 +264,54 @@ export default function LandingPage() {
       transition: all .2s;
     }
     .trust-badge:hover { background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.15); color:#f8fafc; }
+
+    /* ── Responsive ──────────────────────────────────────── */
+    .hero-grid {
+      display:grid; grid-template-columns:1fr 1fr; gap:3rem;
+      align-items:center; width:100%;
+    }
+    .stats-grid {
+      display:grid; grid-template-columns:repeat(4,1fr);
+    }
+    .steps-grid {
+      display:grid; grid-template-columns:repeat(3,1fr); gap:0; position:relative;
+    }
+    .nav-links { display:flex; gap:1.8rem; }
+    .nav-auth  { display:flex; gap:10px; align-items:center; }
+    .hamburger { display:none; background:none; border:none; cursor:pointer; padding:6px; color:#94a3b8; }
+    .mobile-menu {
+      display:none; position:fixed; top:64px; left:0; right:0; z-index:99;
+      background:rgba(8,8,16,.97); backdrop-filter:blur(24px);
+      border-bottom:1px solid rgba(99,102,241,.2);
+      padding:16px 24px 20px;
+      flex-direction:column; gap:0;
+    }
+    .mobile-menu.open { display:flex; }
+    .mobile-menu button {
+      background:none; border:none; color:#94a3b8; cursor:pointer;
+      font-size:.95rem; font-weight:500; text-align:left;
+      padding:12px 0; border-bottom:1px solid rgba(255,255,255,.05);
+      width:100%; transition:color .2s;
+    }
+    .mobile-menu button:last-of-type { border-bottom:none; }
+    .mobile-menu-auth {
+      display:flex; flex-direction:column; gap:8px; margin-top:12px;
+    }
+    .steps-connector { display:block; }
+
+    @media (max-width:767px) {
+      .hero-grid { grid-template-columns:1fr; gap:2rem; }
+      .hero-mockup { display:none; }
+      .stats-grid { grid-template-columns:repeat(2,1fr); }
+      .stats-grid > div:nth-child(2) { border-right:none !important; }
+      .stats-grid > div:nth-child(1),
+      .stats-grid > div:nth-child(2) { border-bottom:1px solid rgba(99,102,241,.12); }
+      .steps-grid { grid-template-columns:1fr; gap:32px; }
+      .steps-connector { display:none; }
+      .nav-links { display:none; }
+      .nav-auth   { display:none; }
+      .hamburger  { display:flex; align-items:center; justify-content:center; }
+    }
   `;
 
   return (
@@ -280,20 +329,23 @@ export default function LandingPage() {
           backdropFilter: scrolled ? "blur(24px)" : "none",
           borderBottom: scrolled ? "1px solid rgba(99,102,241,.15)" : "none",
           boxShadow: scrolled ? "0 1px 30px rgba(0,0,0,.4)" : "none",
+          overflow: "hidden",
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {/* Brand */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
             <div style={{
               width: 34, height: 34, borderRadius: 10,
               background: "linear-gradient(135deg,#6366f1,#22c55e)",
               display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17,
               boxShadow: "0 0 16px rgba(99,102,241,.4)",
             }}>⚡</div>
-            <span style={{ fontWeight: 800, fontSize: "1.15rem", letterSpacing: "-.02em" }}>
+            <span style={{ fontWeight: 800, fontSize: "1.15rem", letterSpacing: "-.02em", whiteSpace: "nowrap" }}>
               Flash<span style={{ color: "#818cf8" }}>Bot</span>
             </span>
           </div>
 
-          <div style={{ display: "flex", gap: "1.8rem" }}>
+          {/* Desktop nav links */}
+          <div className="nav-links">
             {[["Rubros","rubros"],["Cómo funciona","como"],["Testimonios","testimonios"],["Precios","precios"]].map(([l,id]) => (
               <button key={id} onClick={() => scrollTo(id)} style={{
                 background: "none", border: "none", color: "#64748b",
@@ -305,7 +357,8 @@ export default function LandingPage() {
             ))}
           </div>
 
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {/* Desktop auth buttons */}
+          <div className="nav-auth">
             <Link href="/login" style={{
               padding: "7px 16px", borderRadius: 8, fontSize: ".85rem", fontWeight: 500,
               color: "#94a3b8", background: "transparent",
@@ -319,7 +372,39 @@ export default function LandingPage() {
               boxShadow: "0 0 20px rgba(99,102,241,.35)",
             }}>Empezar gratis</Link>
           </div>
+
+          {/* Hamburger (mobile only) */}
+          <button className="hamburger" onClick={() => setMenuOpen(o => !o)} aria-label="Menú">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              {menuOpen
+                ? <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>
+                : <><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></>
+              }
+            </svg>
+          </button>
         </nav>
+
+        {/* Mobile menu */}
+        <div className={`mobile-menu${menuOpen ? " open" : ""}`}>
+          {[["Rubros","rubros"],["Cómo funciona","como"],["Testimonios","testimonios"],["Precios","precios"]].map(([l,id]) => (
+            <button key={id} onClick={() => { scrollTo(id); setMenuOpen(false); }}>{l}</button>
+          ))}
+          <div className="mobile-menu-auth">
+            <Link href="/login" onClick={() => setMenuOpen(false)} style={{
+              display: "block", textAlign: "center",
+              padding: "10px 16px", borderRadius: 8, fontSize: ".9rem", fontWeight: 500,
+              color: "#94a3b8", background: "transparent",
+              border: "1px solid rgba(255,255,255,.09)", textDecoration: "none",
+            }}>Iniciar sesión</Link>
+            <Link href="/register" onClick={() => setMenuOpen(false)} style={{
+              display: "block", textAlign: "center",
+              padding: "10px 16px", borderRadius: 8, fontSize: ".9rem", fontWeight: 700,
+              color: "#fff", background: "linear-gradient(135deg,#6366f1,#4f46e5)",
+              textDecoration: "none",
+              boxShadow: "0 0 20px rgba(99,102,241,.35)",
+            }}>Empezar gratis</Link>
+          </div>
+        </div>
 
         {/* ── HERO ─────────────────────────────────────────────────── */}
         <section className="grid-bg" style={{ position: "relative", overflow: "hidden",
@@ -359,9 +444,7 @@ export default function LandingPage() {
             </circle>
           </svg>
 
-          <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 clamp(1rem,4vw,2rem)",
-            display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3rem",
-            alignItems: "center", width: "100%" }}>
+          <div className="hero-grid" style={{ maxWidth: 1200, margin: "0 auto", padding: "0 clamp(1rem,4vw,2rem)" }}>
 
             {/* Texto */}
             <div>
@@ -423,7 +506,9 @@ export default function LandingPage() {
             </div>
 
             {/* Mockup chat rotante */}
-            <ChatMockup />
+            <div className="hero-mockup">
+              <ChatMockup />
+            </div>
           </div>
         </section>
 
@@ -435,8 +520,7 @@ export default function LandingPage() {
           position:"relative", overflow:"hidden",
         }}>
           <div className="scan-line" style={{ animationDelay:"3s" }} />
-          <div style={{ maxWidth:1000, margin:"0 auto",
-            display:"grid", gridTemplateColumns:"repeat(4,1fr)" }}>
+          <div className="stats-grid" style={{ maxWidth:1000, margin:"0 auto" }}>
             {STATS.map((s,i) => (
               <div key={i} style={{
                 position:"relative",
@@ -534,9 +618,9 @@ export default function LandingPage() {
               </h2>
             </div>
 
-            <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:0,position:"relative" }}>
+            <div className="steps-grid">
               {/* Línea conectora */}
-              <div style={{
+              <div className="steps-connector" style={{
                 position:"absolute",top:44,left:"18%",right:"18%",height:1,
                 background:"linear-gradient(90deg,rgba(99,102,241,.5),rgba(139,92,246,.5),rgba(34,197,94,.5))",
               }}>
