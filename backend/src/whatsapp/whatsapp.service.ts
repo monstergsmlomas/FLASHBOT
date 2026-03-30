@@ -1,9 +1,4 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import makeWASocket, {
-  DisconnectReason,
-  useMultiFileAuthState,
-  fetchLatestBaileysVersion,
-} from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -49,6 +44,7 @@ export class WhatsappService implements OnModuleInit {
       fs.mkdirSync(this.authPath, { recursive: true });
     }
 
+    const { default: makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion, DisconnectReason: DR } = await import('@whiskeysockets/baileys');
     const { state, saveCreds } = await useMultiFileAuthState(this.authPath);
     const { version } = await fetchLatestBaileysVersion();
 
@@ -90,7 +86,7 @@ export class WhatsappService implements OnModuleInit {
         this.connected = false;
         this.connecting = false;
         const code = (lastDisconnect?.error as Boom)?.output?.statusCode;
-        const shouldReconnect = code !== DisconnectReason.loggedOut;
+        const shouldReconnect = code !== DR.loggedOut;
         this.logger.warn(`Desconectado (${code}). Reconectar: ${shouldReconnect}`);
         if (shouldReconnect) {
           setTimeout(() => this.connect(), 3000);
