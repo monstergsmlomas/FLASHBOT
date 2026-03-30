@@ -4,7 +4,7 @@ export class RegisterDto {
   @IsString()
   businessName: string; // nombre del consultorio / negocio
 
-  @IsIn(['consultorio', 'peluqueria', 'salon', 'tecnico', 'tienda', 'cancha', 'kiosco', 'gimnasio', 'restaurante', 'otro'])
+  @IsIn(['consultorio', 'peluqueria', 'salon', 'tecnico', 'tienda', 'cancha', 'kiosco', 'gimnasio', 'restaurante', 'gastronomia', 'otro'])
   businessType: string;
 
   @IsString()
