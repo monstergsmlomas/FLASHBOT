@@ -19,6 +19,8 @@ export class WhatsappService implements OnModuleInit {
   private qrBase64: string | null = null;
   private connected = false;
   private connecting = false;
+  private reconnectAttempts = 0;
+  private readonly MAX_RECONNECT = 8;
   private readonly authPath = path.join(process.cwd(), 'whatsapp-auth');
 
   // Human takeover: phone → timestamp hasta el que el bot está pausado
@@ -88,15 +90,22 @@ export class WhatsappService implements OnModuleInit {
         const code = (lastDisconnect?.error as Boom)?.output?.statusCode;
         const shouldReconnect = code !== DR.loggedOut;
         this.logger.warn(`Desconectado (${code}). Reconectar: ${shouldReconnect}`);
-        if (shouldReconnect) {
-          setTimeout(() => this.connect(), 3000);
-        } else {
+        if (shouldReconnect && this.reconnectAttempts < this.MAX_RECONNECT) {
+          this.reconnectAttempts++;
+          // Backoff exponencial: 3s, 6s, 12s, ... hasta 60s
+          const delay = Math.min(3000 * Math.pow(2, this.reconnectAttempts - 1), 60000);
+          this.logger.warn(`Reintento ${this.reconnectAttempts}/${this.MAX_RECONNECT} en ${delay/1000}s`);
+          setTimeout(() => this.connect(), delay);
+        } else if (!shouldReconnect) {
           this.qrBase64 = null;
           this.clearAuth();
+        } else {
+          this.logger.warn('Máximo de reconexiones alcanzado. Esperando acción manual.');
         }
       }
 
       if (connection === 'open') {
+        this.reconnectAttempts = 0; // resetear contador al conectar
         this.connected = true;
         this.connecting = false;
         this.qrBase64 = null;
