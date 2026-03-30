@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+const BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '');
+const API_URL = BASE.endsWith('/api/v1') ? BASE : `${BASE}/api/v1`;
 
 // Cliente HTTP con el token automático en cada request
 export const api = axios.create({
