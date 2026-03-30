@@ -46,35 +46,35 @@ export default function DashboardPage() {
   return (
     <div className="h-full flex flex-col gap-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">
+          <h1 className="text-xl md:text-2xl font-bold text-foreground leading-tight">
             {greeting}, {user?.name?.split(" ")[0]} 👋
           </h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
+          <p className="text-muted-foreground text-xs md:text-sm mt-0.5">
             {now.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" })}
             {tenant && ` · ${tenant.name}`}
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs font-medium text-primary bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-full">
-          <Zap className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 border border-primary/20 px-2.5 py-1.5 rounded-full shrink-0">
+          <Zap className="h-3 w-3" />
           {tenant?.businessType ?? "negocio"}
         </div>
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
         {stats.map((s) => {
           const Icon = s.icon;
           return (
-            <div key={s.label} className={`${s.grad} rounded-2xl p-5 hover:scale-[1.02] transition-all duration-200`}>
-              <div className="flex items-center justify-between mb-4">
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${s.iconBox}`}>
-                  <Icon className="h-4.5 w-4.5" />
+            <div key={s.label} className={`${s.grad} rounded-2xl p-4 md:p-5 hover:scale-[1.02] transition-all duration-200`}>
+              <div className="flex items-center justify-between mb-3">
+                <div className={`w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center ${s.iconBox}`}>
+                  <Icon className="h-4 w-4" />
                 </div>
-                <p className="text-sm font-medium text-foreground/60">{s.label}</p>
+                <p className="text-xs md:text-sm font-medium text-foreground/60 text-right">{s.label}</p>
               </div>
-              <p className="text-4xl font-bold text-foreground">
+              <p className="text-3xl md:text-4xl font-bold text-foreground">
                 {s.value ?? <span className="text-2xl text-muted-foreground">—</span>}
               </p>
             </div>
