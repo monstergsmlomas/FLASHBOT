@@ -304,7 +304,7 @@ export default function RegisterPage() {
             <p style={{ color: "#64748b", fontSize: "13px", marginTop: "6px" }}>Esta info la usará la IA para atender a tus clientes</p>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
             {/* Columna izquierda: datos */}
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "16px", padding: "20px", display: "flex", flexDirection: "column", gap: "14px" }}>
