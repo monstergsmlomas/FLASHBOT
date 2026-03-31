@@ -58,6 +58,8 @@ export default function InventoryPage() {
   const [newCategory, setNewCategory] = useState("Otros");
   const [newBarcode, setNewBarcode]   = useState("");
   const [newTrackStock, setNewTrackStock] = useState(true);
+  const [saving, setSaving]           = useState(false);
+  const [saveError, setSaveError]     = useState("");
 
   const load = () => api.get("/products").then(r => setProducts(r.data)).catch(() => {});
   useEffect(() => { load(); }, []);
@@ -84,18 +86,29 @@ export default function InventoryPage() {
   };
 
   const addProduct = async () => {
-    if (!newName.trim() || !newPrice) return;
-    await api.post("/products", {
-      name:     newName.trim(),
-      price:    parseFloat(newPrice),
-      cost:     newCost ? parseFloat(newCost) : 0,
-      stock:    newTrackStock ? parseInt(newStock || "0") : -1,
-      category: newCategory,
-      barcode:  newBarcode.trim() || undefined,
-    });
-    setNewName(""); setNewCost(""); setNewPrice(""); setNewStock(""); setNewTrackStock(true); setNewBarcode("");
-    setShowModal(false);
-    load();
+    setSaveError("");
+    if (!newName.trim()) { setSaveError("El nombre es obligatorio"); return; }
+    if (!newPrice)       { setSaveError("El precio de venta es obligatorio"); return; }
+    setSaving(true);
+    try {
+      await api.post("/products", {
+        name:     newName.trim(),
+        price:    parseFloat(newPrice),
+        cost:     newCost ? parseFloat(newCost) : 0,
+        stock:    newTrackStock ? parseInt(newStock || "0") : -1,
+        category: newCategory,
+        barcode:  newBarcode.trim() || undefined,
+      });
+      setNewName(""); setNewCost(""); setNewPrice(""); setNewStock(""); setNewTrackStock(true); setNewBarcode(""); setSaveError("");
+      setShowModal(false);
+      load();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message;
+      if (Array.isArray(msg)) setSaveError(msg.join(", "));
+      else setSaveError(msg || "Error al guardar. Verificá los datos e intentá de nuevo.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const saveEdit = async (id: string) => {
@@ -620,9 +633,15 @@ export default function InventoryPage() {
             </div>
 
             {/* Drawer footer */}
-            <div className="pb-[88px] md:pb-5" style={{ paddingTop: "20px", paddingLeft: "24px", paddingRight: "24px", borderTop: "1px solid rgba(255,255,255,0.07)", display: "flex", gap: "10px" }}>
+            <div className="pb-[88px] md:pb-5" style={{ paddingTop: "20px", paddingLeft: "24px", paddingRight: "24px", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+              {saveError && (
+                <div style={{ marginBottom: "12px", padding: "10px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "8px", color: "#f87171", fontSize: "13px" }}>
+                  {saveError}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: "10px" }}>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => { setShowModal(false); setSaveError(""); }}
                 style={{ flex: 1, height: "42px", borderRadius: "10px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#94a3b8", fontSize: "13px", fontWeight: 600, cursor: "pointer", transition: "all 0.2s" }}
                 onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; }}
                 onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
@@ -631,12 +650,14 @@ export default function InventoryPage() {
               </button>
               <button
                 onClick={addProduct}
-                style={{ flex: 2, height: "42px", borderRadius: "10px", background: "linear-gradient(135deg, #7c3aed, #6d28d9)", border: "1px solid rgba(124,58,237,0.5)", color: "white", fontSize: "13px", fontWeight: 700, cursor: "pointer", boxShadow: "0 0 20px rgba(124,58,237,0.3)", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "7px" }}
-                onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 0 30px rgba(124,58,237,0.5)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+                disabled={saving}
+                style={{ flex: 2, height: "42px", borderRadius: "10px", background: saving ? "rgba(124,58,237,0.4)" : "linear-gradient(135deg, #7c3aed, #6d28d9)", border: "1px solid rgba(124,58,237,0.5)", color: "white", fontSize: "13px", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", boxShadow: "0 0 20px rgba(124,58,237,0.3)", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "7px" }}
+                onMouseEnter={e => { if (!saving) { e.currentTarget.style.boxShadow = "0 0 30px rgba(124,58,237,0.5)"; e.currentTarget.style.transform = "translateY(-1px)"; } }}
                 onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 0 20px rgba(124,58,237,0.3)"; e.currentTarget.style.transform = "translateY(0)"; }}
               >
-                <Plus size={15} /> Agregar Producto
+                {saving ? "Guardando..." : <><Plus size={15} /> Agregar Producto</>}
               </button>
+              </div>
             </div>
           </div>
         </>
