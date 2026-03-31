@@ -98,4 +98,13 @@ export class TenantsService {
       totalCustomers,
     };
   }
+
+  // Actualizar módulos activos del negocio
+  async updateModules(tenantId: string, modules: string[]) {
+    const tenant = await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { modules },
+    });
+    return { modules: tenant.modules };
+  }
 }

@@ -31,4 +31,10 @@ export class TenantsController {
   updateHours(@CurrentUser() user: any, @Body('hours') hours: any[]) {
     return this.service.updateBusinessHours(user.tenantId, hours);
   }
+
+  // PATCH /api/v1/settings/modules - actualizar módulos activos
+  @Patch('modules')
+  updateModules(@CurrentUser() user: any, @Body('modules') modules: string[]) {
+    return this.service.updateModules(user.tenantId, modules);
+  }
 }

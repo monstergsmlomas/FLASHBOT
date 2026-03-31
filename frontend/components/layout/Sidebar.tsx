@@ -9,9 +9,10 @@ import { cn } from "@/lib/utils";
 import {
   CalendarDays, Users, Settings, LogOut,
   LayoutDashboard, MessageCircle,
-  Smartphone, ShoppingCart, Wrench, Package, UserCog, PlusCircle,
+  Smartphone, ShoppingCart, Wrench, Package, UserCog, LayoutGrid,
   Truck, UtensilsCrossed,
 } from "lucide-react";
+import { ModulesModal } from "@/components/ModulesModal";
 
 const ALL_NAV_ITEMS = [
   { href: "/dashboard",              label: "Dashboard",      icon: LayoutDashboard, module: null,           exact: true },
@@ -33,6 +34,7 @@ export function Sidebar() {
   // Estado reactivo — se actualiza cuando settings guarda un nombre nuevo
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [user, setUser]     = useState<User | null>(null);
+  const [showModules, setShowModules] = useState(false);
 
   // Estado de conexión WhatsApp para el dot indicador
   const [waConnected, setWaConnected] = useState<boolean | null>(null);
@@ -150,10 +152,10 @@ export function Sidebar() {
           </p>
         </div>
 
-        <Link
-          href="/register"
+        <button
+          onClick={() => setShowModules(true)}
           className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium w-full transition-all"
-          style={{ color: "var(--sidebar-accent-foreground)" }}
+          style={{ color: "var(--sidebar-accent-foreground)", background: "transparent", border: "none", cursor: "pointer", textAlign: "left" }}
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLElement).style.background = "var(--sidebar-accent)";
             (e.currentTarget as HTMLElement).style.color = "var(--sidebar-foreground)";
@@ -163,9 +165,11 @@ export function Sidebar() {
             (e.currentTarget as HTMLElement).style.color = "var(--sidebar-accent-foreground)";
           }}
         >
-          <PlusCircle className="h-4 w-4" />
-          Registrar otro negocio
-        </Link>
+          <LayoutGrid className="h-4 w-4" />
+          Gestionar módulos
+        </button>
+
+        {showModules && <ModulesModal onClose={() => setShowModules(false)} />}
 
         <button
           onClick={logout}
