@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { getStoredTenant } from "@/lib/auth";
 import { Search, Plus, Pencil, Trash2, X, MessageCircle, Zap } from "lucide-react";
+
+function getClientLabels(businessType?: string) {
+  if (businessType === "consultorio") return { singular: "paciente", plural: "pacientes", Singular: "Paciente", Plural: "Pacientes" };
+  return { singular: "cliente", plural: "clientes", Singular: "Cliente", Plural: "Clientes" };
+}
 
 interface Customer {
   id: string;
@@ -43,9 +49,10 @@ interface CustomerModalProps {
   customer?: Customer | null;
   onClose: () => void;
   onSaved: () => void;
+  labels: ReturnType<typeof getClientLabels>;
 }
 
-function CustomerModal({ customer, onClose, onSaved }: CustomerModalProps) {
+function CustomerModal({ customer, onClose, onSaved, labels }: CustomerModalProps) {
   const isEdit = !!customer;
   const [form, setForm] = useState({
     name:      customer?.name      ?? "",
@@ -91,7 +98,7 @@ function CustomerModal({ customer, onClose, onSaved }: CustomerModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
           <h2 className="text-lg font-semibold text-foreground">
-            {isEdit ? "Editar paciente" : "Nuevo paciente"}
+            {isEdit ? `Editar ${labels.singular}` : `Nuevo ${labels.singular}`}
           </h2>
           <button
             onClick={onClose}
@@ -163,7 +170,7 @@ function CustomerModal({ customer, onClose, onSaved }: CustomerModalProps) {
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">Notas</label>
             <textarea
-              placeholder="Notas internas sobre este paciente..."
+              placeholder={`Notas internas sobre este ${labels.singular}...`}
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
               rows={3}
@@ -196,9 +203,10 @@ interface DeleteModalProps {
   customer: Customer;
   onClose: () => void;
   onDeleted: () => void;
+  labels: ReturnType<typeof getClientLabels>;
 }
 
-function DeleteModal({ customer, onClose, onDeleted }: DeleteModalProps) {
+function DeleteModal({ customer, onClose, onDeleted, labels }: DeleteModalProps) {
   const [deleting, setDeleting] = useState(false);
 
   const handleDelete = async () => {
@@ -218,7 +226,7 @@ function DeleteModal({ customer, onClose, onDeleted }: DeleteModalProps) {
           <div className="p-2 bg-destructive/10 rounded-full">
             <Trash2 className="h-5 w-5 text-destructive" />
           </div>
-          <h2 className="text-lg font-semibold text-foreground">Eliminar paciente</h2>
+          <h2 className="text-lg font-semibold text-foreground">Eliminar {labels.singular}</h2>
         </div>
         <p className="text-sm text-muted-foreground">
           ¿Seguro que querés eliminar a{" "}
@@ -328,6 +336,8 @@ export default function CustomersPage() {
   const [editCustomer, setEditCustomer] = useState<Customer | null>(null);
   const [deleteCustomer, setDeleteCustomer] = useState<Customer | null>(null);
 
+  const labels = getClientLabels(getStoredTenant()?.businessType);
+
   const fetchCustomers = () => {
     setLoading(true);
     api
@@ -360,14 +370,14 @@ export default function CustomersPage() {
         {/* Header */}
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Pacientes</h1>
+            <h1 className="text-2xl font-bold text-foreground">{labels.Plural}</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {customers.length > 0 ? `${customers.length} paciente${customers.length !== 1 ? "s" : ""}` : ""}
+              {customers.length > 0 ? `${customers.length} ${customers.length !== 1 ? labels.plural : labels.singular}` : ""}
             </p>
           </div>
           <button onClick={() => setCreateOpen(true)} className="btn-glass">
             <Zap className="h-4 w-4" />
-            Nuevo paciente
+            Nuevo {labels.singular}
           </button>
         </div>
 
@@ -396,17 +406,17 @@ export default function CustomersPage() {
               <MessageCircle className="h-8 w-8 text-muted-foreground" />
             </div>
             <p className="text-foreground font-medium">
-              {search ? "No se encontraron pacientes" : "Todavía no hay pacientes"}
+              {search ? `No se encontraron ${labels.plural}` : `Todavía no hay ${labels.plural}`}
             </p>
             <p className="text-sm text-muted-foreground mt-1 max-w-xs">
               {search
                 ? "Probá con otro nombre o número de teléfono"
-                : "Los pacientes aparecerán aquí cuando reserven un turno por WhatsApp, o podés crearlos manualmente"}
+                : `Los ${labels.plural} aparecerán aquí cuando reserven un turno por WhatsApp, o podés crearlos manualmente`}
             </p>
             {!search && (
               <button onClick={() => setCreateOpen(true)} className="btn-glass mt-4">
                 <Zap className="h-4 w-4" />
-                Agregar primer paciente
+                Agregar primer {labels.singular}
               </button>
             )}
           </div>
@@ -426,7 +436,7 @@ export default function CustomersPage() {
 
       {/* Modals */}
       {createOpen && (
-        <CustomerModal onClose={() => setCreateOpen(false)} onSaved={handleSaved} />
+        <CustomerModal onClose={() => setCreateOpen(false)} onSaved={handleSaved} labels={labels} />
       )}
 
       {editCustomer && (
@@ -434,6 +444,7 @@ export default function CustomersPage() {
           customer={editCustomer}
           onClose={() => setEditCustomer(null)}
           onSaved={handleSaved}
+          labels={labels}
         />
       )}
 
@@ -442,6 +453,7 @@ export default function CustomersPage() {
           customer={deleteCustomer}
           onClose={() => setDeleteCustomer(null)}
           onDeleted={handleDeleted}
+          labels={labels}
         />
       )}
     </>
