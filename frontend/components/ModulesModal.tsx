@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { X, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { getStoredTenant } from "@/lib/auth";
@@ -55,7 +56,7 @@ export function ModulesModal({ onClose }: Props) {
     }
   };
 
-  return (
+  return createPortal(
     <div
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
@@ -117,6 +118,7 @@ export function ModulesModal({ onClose }: Props) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
