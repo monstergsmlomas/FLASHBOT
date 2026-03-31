@@ -5,22 +5,19 @@ import { X, Camera } from "lucide-react";
 
 interface Props {
   onDetected: (code: string) => void;
-  onClose: () => void;
-  title?: string;
-  subtitle?: string;
+  onClose:    () => void;
+  title?:     string;
+  subtitle?:  string;
 }
-
-const FORMATS = ["ean_13","ean_8","upc_a","upc_e","code_128","code_39","itf","qr_code"];
 
 export function BarcodeScanner({
   onDetected, onClose,
   title    = "Escanear código",
   subtitle = "Apuntá la cámara al código de barra",
 }: Props) {
-  const videoRef  = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream|null>(null);
-  const rafRef    = useRef<number|null>(null);
-  const doneRef   = useRef(false);
+  const videoRef   = useRef<HTMLVideoElement>(null);
+  const readerRef  = useRef<any>(null);
+  const doneRef    = useRef(false);
 
   const [status, setStatus] = useState<"idle"|"scanning"|"error">("idle");
   const [errMsg, setErrMsg] = useState("");
@@ -28,84 +25,83 @@ export function BarcodeScanner({
   useEffect(() => {
     let cancelled = false;
 
-    const cleanup = () => {
+    const stop = () => {
       cancelled = true;
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      streamRef.current?.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
+      try { readerRef.current?.reset(); } catch(_) {}
     };
 
     const start = async () => {
-      // ── Chequear soporte ────────────────────────────────────────────────
-      if (!("BarcodeDetector" in window)) {
-        setErrMsg(
-          "Tu navegador no soporta escaneo de códigos de barra.\n\n" +
-          "Usá Chrome en Android, o actualizá Safari a iOS 17.4+."
-        );
-        setStatus("error");
-        return;
-      }
-
       try {
-        // ── Abrir cámara trasera ──────────────────────────────────────────
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: "environment" },
-            width:  { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        });
-        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
-        streamRef.current = stream;
+        const { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } =
+          await import("@zxing/browser");
 
-        const video = videoRef.current!;
-        video.srcObject = stream;
-        await video.play();
         if (cancelled) return;
-        setStatus("scanning");
 
-        // ── Crear detector ────────────────────────────────────────────────
-        const supported: string[] = await (window as any).BarcodeDetector
-          .getSupportedFormats?.() ?? FORMATS;
-        const formats = FORMATS.filter(f => supported.includes(f));
-        const detector = new (window as any).BarcodeDetector({
-          formats: formats.length ? formats : FORMATS,
+        // Configurar hints para priorizar códigos de barra lineales
+        const hints = new Map();
+        hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+          BarcodeFormat.EAN_13,
+          BarcodeFormat.EAN_8,
+          BarcodeFormat.UPC_A,
+          BarcodeFormat.UPC_E,
+          BarcodeFormat.CODE_128,
+          BarcodeFormat.CODE_39,
+          BarcodeFormat.CODE_93,
+          BarcodeFormat.ITF,
+          BarcodeFormat.CODABAR,
+          BarcodeFormat.QR_CODE,
+        ]);
+        hints.set(DecodeHintType.TRY_HARDER, true);
+
+        const reader = new BrowserMultiFormatReader(hints, {
+          delayBetweenScanAttempts: 150,
         });
+        readerRef.current = reader;
 
-        // ── Loop de detección ─────────────────────────────────────────────
-        const tick = async () => {
-          if (cancelled || doneRef.current) return;
-          if (video.readyState >= 2) {
-            try {
-              const results: any[] = await detector.detect(video);
-              if (results.length > 0) {
-                const code = results[0].rawValue;
-                doneRef.current = true;
-                navigator.vibrate?.(100);
-                cleanup();
-                onDetected(code);
-                return;
-              }
-            } catch (_) { /* frame vacío — ignorar */ }
+        // Preferir cámara trasera
+        const devices = await BrowserMultiFormatReader.listVideoInputDevices();
+        const back = devices.find(d =>
+          d.label.toLowerCase().includes("back") ||
+          d.label.toLowerCase().includes("trasera") ||
+          d.label.toLowerCase().includes("environment")
+        ) ?? devices[devices.length - 1];
+
+        if (!back) throw new Error("No se encontró ninguna cámara");
+
+        if (cancelled) return;
+
+        await reader.decodeFromVideoDevice(
+          back.deviceId,
+          videoRef.current!,
+          (result, err) => {
+            if (cancelled || doneRef.current) return;
+            if (result) {
+              doneRef.current = true;
+              navigator.vibrate?.(100);
+              stop();
+              onDetected(result.getText());
+            }
           }
-          rafRef.current = requestAnimationFrame(tick);
-        };
-        rafRef.current = requestAnimationFrame(tick);
+        );
+
+        if (!cancelled) setStatus("scanning");
 
       } catch (e: any) {
         if (cancelled) return;
         const m = (e?.message ?? "").toLowerCase();
         if (m.includes("permission") || m.includes("denied") || m.includes("notallowed")) {
-          setErrMsg("Permiso de cámara denegado. Habilitalo en Configuración > Safari/Chrome > Cámara.");
+          setErrMsg("Permiso de cámara denegado.\nHabilitalo en Configuración del dispositivo.");
+        } else if (m.includes("device") || m.includes("cámara")) {
+          setErrMsg(e.message);
         } else {
-          setErrMsg("No se pudo abrir la cámara: " + (e?.message ?? "error desconocido"));
+          setErrMsg("No se pudo iniciar la cámara.\n" + (e?.message ?? ""));
         }
         setStatus("error");
       }
     };
 
     start();
-    return cleanup;
+    return stop;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -114,9 +110,9 @@ export function BarcodeScanner({
 
       {/* Header */}
       <div style={{
-        padding:"16px 20px", display:"flex", alignItems:"center", justifyContent:"space-between",
+        padding:"16px 20px", flexShrink:0,
+        display:"flex", alignItems:"center", justifyContent:"space-between",
         background:"rgba(0,0,0,0.85)", borderBottom:"1px solid rgba(255,255,255,0.08)",
-        flexShrink: 0,
       }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           <div style={{
@@ -142,7 +138,6 @@ export function BarcodeScanner({
 
       {/* Área de cámara */}
       <div style={{ flex:1, position:"relative", overflow:"hidden" }}>
-
         {status === "error" ? (
           <div style={{
             height:"100%", display:"flex", flexDirection:"column",
@@ -164,12 +159,9 @@ export function BarcodeScanner({
           <>
             <video
               ref={videoRef}
-              playsInline
-              muted
               style={{ width:"100%", height:"100%", objectFit:"cover" }}
             />
 
-            {/* Overlay visor */}
             {status === "scanning" && (
               <div style={{
                 position:"absolute", inset:0,
@@ -180,27 +172,22 @@ export function BarcodeScanner({
                   position:"absolute", inset:0,
                   background:"linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 25%, transparent 75%, rgba(0,0,0,0.45) 100%)",
                 }} />
-                {/* Recuadro de escaneo */}
                 <div style={{
                   width:"88%", height:110, position:"relative",
-                  border:"2px solid rgba(124,58,237,0.9)",
-                  borderRadius:12,
+                  border:"2px solid rgba(124,58,237,0.9)", borderRadius:12,
                   boxShadow:"0 0 0 9999px rgba(0,0,0,0.42)",
                 }}>
-                  {/* Línea de escaneo */}
                   <div style={{
-                    position:"absolute", left:8, right:8, top:"50%",
-                    height:2,
+                    position:"absolute", left:8, right:8, top:"50%", height:2,
                     background:"linear-gradient(90deg, transparent, #a78bfa, transparent)",
                     animation:"scan 1.5s ease-in-out infinite",
                   }} />
-                  {/* Esquinas */}
                   {([
-                    { top:-2, left:-2,  borderTop:"3px solid #7c3aed",    borderLeft:"3px solid #7c3aed",   borderRadius:"10px 0 0 0" },
-                    { top:-2, right:-2, borderTop:"3px solid #7c3aed",    borderRight:"3px solid #7c3aed",  borderRadius:"0 10px 0 0" },
+                    { top:-2,    left:-2,  borderTop:"3px solid #7c3aed",    borderLeft:"3px solid #7c3aed",   borderRadius:"10px 0 0 0" },
+                    { top:-2,    right:-2, borderTop:"3px solid #7c3aed",    borderRight:"3px solid #7c3aed",  borderRadius:"0 10px 0 0" },
                     { bottom:-2, left:-2,  borderBottom:"3px solid #7c3aed", borderLeft:"3px solid #7c3aed",   borderRadius:"0 0 0 10px" },
                     { bottom:-2, right:-2, borderBottom:"3px solid #7c3aed", borderRight:"3px solid #7c3aed",  borderRadius:"0 0 10px 0" },
-                  ] as React.CSSProperties[]).map((s, i) => (
+                  ] as React.CSSProperties[]).map((s,i) => (
                     <div key={i} style={{ position:"absolute", width:22, height:22, ...s }} />
                   ))}
                 </div>
@@ -220,7 +207,6 @@ export function BarcodeScanner({
         )}
       </div>
 
-      {/* Footer */}
       {status === "scanning" && (
         <div style={{
           padding:"14px 24px 28px", textAlign:"center", flexShrink:0,
@@ -237,9 +223,9 @@ export function BarcodeScanner({
 
       <style>{`
         @keyframes scan {
-          0%   { transform: translateY(-28px); opacity: 0.3; }
-          50%  { transform: translateY(0px);   opacity: 1;   }
-          100% { transform: translateY(28px);  opacity: 0.3; }
+          0%   { transform: translateY(-28px); opacity:.3; }
+          50%  { transform: translateY(0);     opacity:1;  }
+          100% { transform: translateY(28px);  opacity:.3; }
         }
       `}</style>
     </div>
