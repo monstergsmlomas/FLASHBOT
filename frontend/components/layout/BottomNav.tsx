@@ -42,11 +42,14 @@ export function BottomNav() {
   const items = allItems.slice(0, 5);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t"
+    <nav className="fixed bottom-0 left-0 right-0 z-[9999] md:hidden border-t"
       style={{
-        background: "var(--sidebar-background, hsl(var(--background)))",
-        borderColor: "var(--sidebar-border)",
+        background: "rgba(10, 10, 18, 0.75)",
+        backdropFilter: "blur(20px) saturate(180%)",
+        WebkitBackdropFilter: "blur(20px) saturate(180%)",
+        borderColor: "rgba(255,255,255,0.08)",
         paddingBottom: "env(safe-area-inset-bottom)",
+        boxShadow: "0 -1px 0 rgba(255,255,255,0.05), 0 -8px 32px rgba(0,0,0,0.4)",
       }}
     >
       <div className="flex items-stretch">
