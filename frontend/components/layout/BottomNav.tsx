@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, CalendarDays, Users,
   ShoppingCart, Smartphone, Settings, Package, Wrench, UserCog,
+  Truck, UtensilsCrossed,
 } from "lucide-react";
 
 const ALL_NAV = [
@@ -17,6 +18,8 @@ const ALL_NAV = [
   { href: "/dashboard/employees",    label: "Empleados",   icon: UserCog,         module: "employees",    exact: false },
   { href: "/dashboard/sales",        label: "Ventas",      icon: ShoppingCart,    module: "sales",        exact: false },
   { href: "/dashboard/inventory",    label: "Stock",       icon: Package,         module: "sales",        exact: false },
+  { href: "/dashboard/orders",       label: "Pedidos",     icon: Truck,           module: "delivery",     exact: false },
+  { href: "/dashboard/menu",         label: "Menú",        icon: UtensilsCrossed, module: "delivery",     exact: false },
   { href: "/dashboard/repairs",      label: "Reparac.",    icon: Wrench,          module: "repairs",      exact: false },
   { href: "/dashboard/whatsapp",     label: "WhatsApp",    icon: Smartphone,      module: null,           exact: false },
   { href: "/dashboard/settings",     label: "Config.",     icon: Settings,        module: null,           exact: false },

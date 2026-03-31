@@ -8,9 +8,10 @@ import { CustomersModule } from '../customers/customers.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { ServicesModule } from '../services/services.module';
 import { EmployeesModule } from '../employees/employees.module';
+import { OrdersModule } from '../orders/orders.module';
 
 @Module({
-  imports: [AppointmentsModule, CustomersModule, TenantsModule, ServicesModule, EmployeesModule],
+  imports: [AppointmentsModule, CustomersModule, TenantsModule, ServicesModule, EmployeesModule, OrdersModule],
   controllers: [WhatsappController],
   providers: [WhatsappService, ConversationService, PrismaService],
   exports: [WhatsappService],

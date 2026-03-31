@@ -32,6 +32,7 @@ model Tenant {
   employeeServices EmployeeService[]
   products      Product[]
   sales         Sale[]
+  orders        Order[]
 }
 
 // ─── USER (admin/empleado del negocio) ───────────────────────────────────────
@@ -196,7 +197,7 @@ model MessageTemplate {
   @@unique([key, tenantId])
 }
 
-// ─── PRODUCT (producto del kiosco/tienda) ────────────────────────────────────
+// ─── PRODUCT (producto del kiosco/tienda / ítem del menú) ────────────────────
 
 model Product {
   id        String  @id @default(cuid())
@@ -211,7 +212,8 @@ model Product {
   tenantId  String
   tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  saleItems SaleItem[]
+  saleItems  SaleItem[]
+  orderItems OrderItem[]
 
   createdAt DateTime @default(now())
   @@unique([name, tenantId])
@@ -243,6 +245,56 @@ model SaleItem {
 
   saleId    String
   sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id])
+}
+
+// ─── ORDER (pedido de delivery / retiro / local) ─────────────────────────────
+
+enum OrderType {
+  DELIVERY  // envío a domicilio
+  PICKUP    // retira el cliente
+  LOCAL     // consume en el local
+}
+
+enum OrderStatus {
+  PENDING    // recibido, sin confirmar
+  CONFIRMED  // confirmado por el negocio
+  PREPARING  // en preparación
+  READY      // listo para entregar/retirar
+  DELIVERED  // entregado
+  CANCELLED  // cancelado
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  number        Int         // número de pedido por tenant (1, 2, 3...)
+  customerName  String
+  customerPhone String?
+  address       String?     // domicilio de entrega (solo delivery)
+  type          OrderType   @default(DELIVERY)
+  status        OrderStatus @default(PENDING)
+  notes         String?
+  total         Float       @default(0)
+  items         OrderItem[]
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  name      String
+  price     Float
+  quantity  Int     @default(1)
+  total     Float
+  notes     String? // ej: "sin cebolla"
+
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId String?
   product   Product? @relation(fields: [productId], references: [id])
 }

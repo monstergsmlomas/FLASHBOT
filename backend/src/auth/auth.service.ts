@@ -34,10 +34,10 @@ export class AuthService {
       peluqueria:  ['appointments', 'customers'],
       salon:       ['appointments', 'customers', 'sales'],
       cancha:      ['appointments', 'sales', 'inventory'],
-      kiosco:      ['sales', 'inventory'],
+      kiosco:      ['sales', 'inventory', 'delivery'],
       tecnico:     ['repairs', 'customers', 'sales', 'inventory'],
       gimnasio:    ['appointments', 'customers', 'sales'],
-      restaurante: ['sales', 'inventory'],
+      restaurante: ['sales', 'inventory', 'delivery'],
       otro:        ['appointments', 'customers'],
     };
 

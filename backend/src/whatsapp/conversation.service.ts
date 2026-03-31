@@ -6,6 +6,7 @@ import { CustomersService } from '../customers/customers.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { ServicesService } from '../services/services.service';
 import { EmployeesService } from '../employees/employees.service';
+import { OrdersService } from '../orders/orders.service';
 import * as fs from 'fs';
 
 const DEBUG_LOG = 'C:\\Users\\monst\\OneDrive\\Escritorio\\CLAUDE CODE\\AUTOMATIZACION\\backend\\bot-debug.log';
@@ -122,6 +123,47 @@ const TOOLS: Groq.Chat.ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
+      name: 'get_menu',
+      description: 'Obtiene el menú disponible agrupado por categoría. Usá esta tool cuando el cliente pida ver el menú, la carta o quiera hacer un pedido.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_order',
+      description: 'Crea un pedido con los ítems que eligió el cliente. Usá esta tool SOLO después de confirmar todos los ítems, el tipo de entrega y la dirección si es delivery.',
+      parameters: {
+        type: 'object',
+        properties: {
+          customer_name:  { type: 'string',  description: 'Nombre del cliente' },
+          customer_phone: { type: 'string',  description: 'Teléfono del cliente (opcional)' },
+          type:           { type: 'string',  enum: ['DELIVERY', 'PICKUP', 'LOCAL'], description: 'Tipo de pedido: DELIVERY (envío), PICKUP (retira), LOCAL (consume en el local)' },
+          address:        { type: 'string',  description: 'Dirección de entrega (solo para DELIVERY)' },
+          notes:          { type: 'string',  description: 'Notas del pedido (ej: sin cebolla, tocar timbre)' },
+          items: {
+            type: 'array',
+            description: 'Lista de ítems del pedido',
+            items: {
+              type: 'object',
+              properties: {
+                product_id: { type: 'string', description: 'ID del producto del menú' },
+                name:       { type: 'string', description: 'Nombre del ítem' },
+                price:      { type: 'number', description: 'Precio unitario' },
+                quantity:   { type: 'number', description: 'Cantidad' },
+                notes:      { type: 'string', description: 'Aclaración específica del ítem (ej: sin sal)' },
+              },
+              required: ['name', 'price', 'quantity'],
+            },
+          },
+        },
+        required: ['customer_name', 'type', 'items'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_employee_slots',
       description: 'Obtiene los horarios disponibles para un empleado específico en una fecha. Usá esta tool en lugar de get_available_slots cuando el cliente eligió un empleado.',
       parameters: {
@@ -156,6 +198,7 @@ export class ConversationService {
     private tenantsService: TenantsService,
     private servicesService: ServicesService,
     private employeesService: EmployeesService,
+    private ordersService: OrdersService,
   ) {}
 
   // ── Retry de mensajes pendientes ─────────────────────────────────────────────
@@ -488,6 +531,44 @@ REGLAS:
           }
           await this.customersService.update(tenantId, customerId, updateData);
           return { success: true, updated_fields: Object.keys(updateData) };
+        }
+
+        case 'get_menu': {
+          const menu = await this.ordersService.getMenu(tenantId);
+          const categories = Object.entries(menu);
+          if (categories.length === 0) {
+            return { menu: [], message: 'El menú está vacío por el momento' };
+          }
+          return {
+            menu: categories.map(([cat, items]) => ({
+              category: cat,
+              items: (items as any[]).map((i: any) => ({ id: i.id, name: i.name, price: i.price })),
+            })),
+          };
+        }
+
+        case 'create_order': {
+          const order = await this.ordersService.create(tenantId, {
+            customerName:  args.customer_name,
+            customerPhone: args.customer_phone ?? null,
+            address:       args.address ?? null,
+            type:          args.type as 'DELIVERY' | 'PICKUP' | 'LOCAL',
+            notes:         args.notes ?? null,
+            items: (args.items ?? []).map((i: any) => ({
+              productId: i.product_id ?? undefined,
+              name:      i.name,
+              price:     i.price,
+              quantity:  i.quantity,
+              notes:     i.notes ?? undefined,
+            })),
+          });
+          return {
+            success: true,
+            order_number: order.number,
+            total: order.total,
+            type: order.type,
+            message: `Pedido #${order.number} creado correctamente. Total: $${order.total}`,
+          };
         }
 
         default:

@@ -9,6 +9,7 @@ import { TemplatesModule } from './templates/templates.module';
 import { ServicesModule } from './services/services.module';
 import { EmployeesModule } from './employees/employees.module';
 import { SalesModule } from './sales/sales.module';
+import { OrdersModule } from './orders/orders.module';
 import { PrismaService } from './prisma.service';
 
 @Module({
@@ -23,6 +24,7 @@ import { PrismaService } from './prisma.service';
     ServicesModule,
     EmployeesModule,
     SalesModule,
+    OrdersModule,
   ],
   providers: [PrismaService],
   exports: [PrismaService],
