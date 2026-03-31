@@ -111,8 +111,6 @@ export function BarcodeScanner({
           BarcodeFormat.QR_CODE,
         ]);
         hints.set(DecodeHintType.TRY_HARDER, true);
-        // Intentar múltiples veces antes de descartar un frame
-        hints.set(DecodeHintType.ALSO_INVERTED, true);
 
         const reader = new BrowserMultiFormatReader(hints, {
           delayBetweenScanAttempts: 100,   // más intentos por segundo
