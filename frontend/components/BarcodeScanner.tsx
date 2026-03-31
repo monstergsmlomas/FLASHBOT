@@ -32,8 +32,10 @@ export function BarcodeScanner({
 
     const start = async () => {
       try {
-        const { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } =
+        const { BrowserMultiFormatReader, BarcodeFormat } =
           await import("@zxing/browser");
+        const { DecodeHintType } =
+          await import("@zxing/library");
 
         if (cancelled) return;
 
