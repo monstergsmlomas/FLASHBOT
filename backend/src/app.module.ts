@@ -10,6 +10,8 @@ import { ServicesModule } from './services/services.module';
 import { EmployeesModule } from './employees/employees.module';
 import { SalesModule } from './sales/sales.module';
 import { OrdersModule } from './orders/orders.module';
+import { SparePartsModule } from './spare-parts/spare-parts.module';
+import { RepairsModule } from './repairs/repairs.module';
 import { PrismaService } from './prisma.service';
 
 @Module({
@@ -25,6 +27,8 @@ import { PrismaService } from './prisma.service';
     EmployeesModule,
     SalesModule,
     OrdersModule,
+    SparePartsModule,
+    RepairsModule,
   ],
   providers: [PrismaService],
   exports: [PrismaService],

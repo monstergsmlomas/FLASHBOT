@@ -7,6 +7,8 @@ import { TenantsService } from '../tenants/tenants.service';
 import { ServicesService } from '../services/services.service';
 import { EmployeesService } from '../employees/employees.service';
 import { OrdersService } from '../orders/orders.service';
+import { SparePartsService } from '../spare-parts/spare-parts.service';
+import { RepairsService } from '../repairs/repairs.service';
 import * as fs from 'fs';
 
 const DEBUG_LOG = 'C:\\Users\\monst\\OneDrive\\Escritorio\\CLAUDE CODE\\AUTOMATIZACION\\backend\\bot-debug.log';
@@ -177,6 +179,48 @@ const TOOLS: Groq.Chat.ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'list_my_orders',
+      description: 'Lista los pedidos recientes del cliente actual. Usá esta tool cuando el cliente pregunta por su pedido, el estado, cuánto falta, etc.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'search_repair_price',
+      description: 'Busca el precio de un repuesto para un equipo específico. Usá esta tool cuando el cliente pregunta cuánto cuesta arreglar algo, el precio de una pantalla, batería u otro repuesto.',
+      parameters: {
+        type: 'object',
+        properties: {
+          brand:     { type: 'string', description: 'Marca del equipo (ej: Samsung, Apple, Motorola)' },
+          model:     { type: 'string', description: 'Modelo exacto del equipo (ej: A54, iPhone 13, G84)' },
+          part_name: { type: 'string', description: 'Nombre del repuesto que busca (ej: pantalla, batería, conector de carga)' },
+        },
+        required: ['brand', 'model', 'part_name'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_repair_request',
+      description: 'Registra un equipo para reparación. Usá esta tool SOLO después de obtener el nombre del cliente, la marca y modelo del equipo, y la descripción del problema. Devuelve el número de orden generado.',
+      parameters: {
+        type: 'object',
+        properties: {
+          customer_name:  { type: 'string', description: 'Nombre completo del cliente' },
+          device_brand:   { type: 'string', description: 'Marca del equipo (ej: Samsung, Apple)' },
+          device_model:   { type: 'string', description: 'Modelo del equipo (ej: A54, iPhone 13)' },
+          problem:        { type: 'string', description: 'Descripción del problema según el cliente' },
+          spare_part_id:  { type: 'string', description: 'ID del repuesto a usar (opcional, solo si ya se identificó el repuesto necesario)' },
+        },
+        required: ['customer_name', 'device_brand', 'device_model', 'problem'],
+      },
+    },
+  },
 ];
 
 type ChatMessage = Groq.Chat.ChatCompletionMessageParam;
@@ -199,6 +243,8 @@ export class ConversationService {
     private servicesService: ServicesService,
     private employeesService: EmployeesService,
     private ordersService: OrdersService,
+    private sparePartsService: SparePartsService,
+    private repairsService: RepairsService,
   ) {}
 
   // ── Retry de mensajes pendientes ─────────────────────────────────────────────
@@ -355,54 +401,70 @@ export class ConversationService {
     const dayName = getDayName(now);
     const timeStr = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
 
-    const hasServices = cfg.services && Array.isArray(cfg.services) && cfg.services.length > 0 && typeof cfg.services[0] === 'object';
-    const simpleServices = cfg.services && Array.isArray(cfg.services) && cfg.services.length > 0 && typeof cfg.services[0] === 'string';
+    const modules: string[] = Array.isArray(tenant.modules) ? tenant.modules : [];
+    const hasAppointments = modules.includes('appointments');
+    const hasDelivery     = modules.includes('delivery');
 
-    let servicesSection = '';
-    if (hasServices) {
-      servicesSection = `== SERVICIOS DISPONIBLES ==
-${(cfg.services as any[]).map((s: any, i: number) => `${i + 1}. ${s.name} — ${s.durationMin} minutos`).join('\n')}
+    const clienteLabel = tenant.businessType === 'consultorio' ? 'paciente' : 'cliente';
 
-== FLUJO PARA RESERVAR TURNO ==
-1. Preguntá qué servicio quiere (mostrá la lista con duración)
-2. Llamá list_services para confirmar IDs
-3. Preguntá con quién se quiere atender → llamá get_employees_for_service(service_id)
-4. Mostrá empleados disponibles (si solo hay uno, confirmá directamente)
-5. Preguntá qué día prefiere
-6. Llamá get_employee_slots(employee_id, service_id, date) para ver horarios
-7. Mostrá horarios y esperá que elija
-8. Confirmá y reservá con book_appointment(datetime, service_id, employee_id)`;
-    } else if (simpleServices) {
-      servicesSection = `== SERVICIOS DISPONIBLES ==
-${(cfg.services as string[]).map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`;
-    } else {
-      servicesSection = `== SERVICIOS ==\nNo especificados`;
+    // ── Sección de turnos ──────────────────────────────────────────────────────
+    let appointmentsSection = '';
+    if (hasAppointments) {
+      const hasServices = cfg.services && Array.isArray(cfg.services) && cfg.services.length > 0 && typeof cfg.services[0] === 'object';
+      const simpleServices = cfg.services && Array.isArray(cfg.services) && cfg.services.length > 0 && typeof cfg.services[0] === 'string';
+
+      if (hasServices) {
+        appointmentsSection = `== TURNOS ==
+SERVICIOS: ${(cfg.services as any[]).map((s: any) => `${s.name} (${s.durationMin} min)`).join(', ')}
+FLUJO: 1) Preguntá qué servicio quiere → 2) Llamá list_services → 3) get_employees_for_service → 4) get_employee_slots → 5) book_appointment`;
+      } else if (simpleServices) {
+        appointmentsSection = `== TURNOS ==
+SERVICIOS: ${(cfg.services as string[]).join(', ')}
+FLUJO: 1) Preguntá qué día quiere → 2) get_available_slots → 3) Mostrá horarios → 4) book_appointment`;
+      } else {
+        appointmentsSection = `== TURNOS ==
+FLUJO: 1) Preguntá qué día quiere → 2) Llamá get_available_slots → 3) Mostrá horarios disponibles → 4) Confirmá con book_appointment
+REGLA: Usá el "datetime" EXACTO del slot. Nunca lo calcules vos. Si el ${clienteLabel} da sus datos, guardá con update_customer_profile.`;
+      }
     }
 
-    const clienteLabel = cfg.clienteLabel ?? 'paciente';
-    const patientInfo = `
-- Nombre: ${customer.name ?? '(no registrado)'}
-- Teléfono real: ${customer.realPhone ?? '(no registrado)'}
-- DNI: ${customer.dni ?? '(no registrado)'}
-- Domicilio: ${customer.address ?? '(no registrado)'}`.trim();
+    // ── Sección de pedidos ─────────────────────────────────────────────────────
+    let deliverySection = '';
+    if (hasDelivery) {
+      deliverySection = `== PEDIDOS / DELIVERY ==
+FLUJO PARA TOMAR UN PEDIDO:
+1. Cuando el cliente quiera pedir, llamá get_menu y mostrá las opciones por categoría con nombre y precio
+2. Tomá los ítems que pide (pueden ser varios, preguntá si quiere algo más)
+3. Confirmá el resumen del pedido con el total calculado
+4. Preguntá si es para *delivery* (envío a domicilio), *retiro* (pasa a buscar) o *consumo en el local*
+5. Si es DELIVERY, pedí la dirección de entrega
+6. Creá el pedido con create_order
+7. Informá el número de pedido y el total: "¡Listo! Tu pedido #X está confirmado. Total: $XXX 🛵"
 
-    const needsName = !customer.name;
+Si el cliente pregunta por su pedido → llamá list_my_orders y mostrá el estado.`;
+    }
 
-    return `Sos el asistente virtual de WhatsApp de *${tenant.name}*. Hablás en español rioplatense, sos amable y usás 1-2 emojis por mensaje 😊. La primera vez que hablás con alguien te presentás.
+    // ── Info del cliente ───────────────────────────────────────────────────────
+    const clienteInfo = customer.name
+      ? `CLIENTE: ${customer.name}. Tel: ${customer.realPhone ?? 'no registrado'}.`
+      : `CLIENTE: Sin nombre registrado — pedíselo primero y guardalo con update_customer_profile.`;
 
-HOY: ${dayName} ${todayStr}, ${timeStr} hs (hora local — NO conviertas a UTC)
+    // ── Construir prompt final ─────────────────────────────────────────────────
+    const sections = [appointmentsSection, deliverySection].filter(Boolean).join('\n\n');
 
-${servicesSection}
+    return `Sos el asistente virtual de WhatsApp de *${tenant.name}*. Hablás en español rioplatense, sos amable y usás 1-2 emojis por mensaje. La primera vez que hablás con alguien te presentás brevemente.
 
-${clienteLabel.toUpperCase()}: ${customer.name ? `Se llama ${customer.name}.` : `No tiene nombre registrado — pedíselo primero y guardalo con update_customer_profile.`} Tel: ${customer.realPhone ?? 'no registrado'}. DNI: ${customer.dni ?? 'no registrado'}.
+HOY: ${dayName} ${todayStr}, ${timeStr} hs (hora local)
 
-REGLAS:
-- Mensajes cortos (máx 3 líneas)
-- Para reservar: llamá SIEMPRE a get_available_slots primero. Usá el "datetime" EXACTO del slot — nunca lo modifiques ni calcules uno vos
-- ${hasServices ? 'Seguí el flujo: servicio → empleado → horario → confirmar' : `Después de reservar, pedí de a uno: teléfono → DNI → domicilio`}
-- Si el ${clienteLabel} da sus datos, guardá con update_customer_profile
+${sections}
+
+${clienteInfo}
+
+REGLAS GENERALES:
+- Mensajes cortos (máx 3-4 líneas por mensaje)
 - Cuando diga "mañana" o "el lunes" calculá la fecha desde hoy (${todayStr})
-- Formato WhatsApp: *negrita* — sin # ni **`;
+- Formato WhatsApp: *negrita* — sin # ni **
+- No inventes precios ni horarios — siempre usá las tools para obtener datos reales`;
   }
 
   // ── Ejecución de tools ────────────────────────────────────────────────────────
@@ -547,6 +609,41 @@ REGLAS:
           };
         }
 
+        case 'list_my_orders': {
+          const customer = await this.prisma.customer.findUnique({ where: { id: customerId } });
+          const phone = customer?.realPhone ?? customer?.phone ?? null;
+          if (!phone) {
+            return { orders: [], message: 'No tenemos tu número de teléfono registrado para buscar pedidos' };
+          }
+          const orders = await this.prisma.order.findMany({
+            where: { tenantId, customerPhone: { contains: phone.slice(-8) } },
+            include: { items: true },
+            orderBy: { createdAt: 'desc' },
+            take: 3,
+          });
+          if (orders.length === 0) {
+            return { orders: [], message: 'No encontramos pedidos recientes para este número' };
+          }
+          const STATUS_LABELS: Record<string, string> = {
+            PENDING:    'Pendiente (recibido)',
+            CONFIRMED:  'Confirmado',
+            PREPARING:  'En preparación',
+            READY:      'Listo para entregar',
+            DELIVERED:  'Entregado',
+            CANCELLED:  'Cancelado',
+          };
+          return {
+            orders: orders.map(o => ({
+              number:   o.number,
+              status:   STATUS_LABELS[o.status] ?? o.status,
+              total:    o.total,
+              type:     o.type,
+              items:    o.items.map(i => `${i.quantity}x ${i.name}`).join(', '),
+              created:  o.createdAt.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
+            })),
+          };
+        }
+
         case 'create_order': {
           const order = await this.ordersService.create(tenantId, {
             customerName:  args.customer_name,
@@ -568,6 +665,78 @@ REGLAS:
             total: order.total,
             type: order.type,
             message: `Pedido #${order.number} creado correctamente. Total: $${order.total}`,
+          };
+        }
+
+        case 'search_repair_price': {
+          // 1. Buscar repuestos con búsqueda fuzzy
+          const parts = await this.sparePartsService.searchFuzzy(
+            args.brand,
+            args.model,
+            args.part_name,
+            tenantId,
+          );
+
+          if (parts.length === 0) {
+            return {
+              found: false,
+              message: `No encontramos precios para *${args.part_name}* de ${args.brand} ${args.model}. Podemos revisar el equipo y darte un presupuesto personalizado.`,
+            };
+          }
+
+          // 2. Obtener el margen del tenant para calcular precio de venta
+          const tenantData = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: { repairMarginPercent: true },
+          });
+          const margin = tenantData?.repairMarginPercent ?? 40;
+
+          // 3. Formatear resultados con precio de venta calculado
+          const results = parts.map((p) => {
+            // Si el repuesto tiene precio de venta manual, lo usa; si no, calcula por margen
+            const sellPrice = p.sellPrice ?? p.costPrice * (1 + margin / 100);
+            return {
+              id:         p.id,
+              brand:      p.brand,
+              model:      p.model,
+              part:       p.name,
+              sell_price: Math.round(sellPrice),
+            };
+          });
+
+          const summary = results
+            .map((r) => `• ${r.brand} ${r.model} - ${r.part}: $${r.sell_price}`)
+            .join('\n');
+
+          return {
+            found: true,
+            parts: results,
+            summary: `Precios para *${args.brand} ${args.model}*:\n${summary}`,
+          };
+        }
+
+        case 'create_repair_request': {
+          // Recuperar el teléfono real del cliente para registrarlo en la reparación
+          const customerData = await this.prisma.customer.findUnique({
+            where: { id: customerId },
+            select: { name: true, realPhone: true, phone: true },
+          });
+          const customerPhone = customerData?.realPhone ?? customerData?.phone ?? '';
+
+          const repair = await this.repairsService.create(tenantId, {
+            deviceBrand:   args.device_brand,
+            deviceModel:   args.device_model,
+            problem:       args.problem,
+            customerName:  args.customer_name,
+            customerPhone,
+            ...(args.spare_part_id ? { sparePartId: args.spare_part_id } : {}),
+          });
+
+          return {
+            success:        true,
+            repair_number:  repair.number,
+            repair_id:      repair.id,
+            message:        `✅ ¡Ingreso registrado! Tu número de orden es *#${repair.number}*. Te avisamos cuando esté listo.`,
           };
         }
 

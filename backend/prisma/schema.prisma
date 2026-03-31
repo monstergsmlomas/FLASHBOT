@@ -10,29 +10,32 @@ datasource db {
 // ─── TENANT (cada negocio) ───────────────────────────────────────────────────
 
 model Tenant {
-  id            String   @id @default(cuid())
-  name          String
-  businessType  String   // 'consultorio', 'peluqueria', 'tecnico', 'tienda'
-  whatsappPhone String?  // número de WhatsApp del negocio
-  isActive      Boolean  @default(true)
-  modules       String[] @default([]) // módulos activos: ["appointments", "sales"]
-  botConfig     Json?    // configuración del bot: labels, keywords, servicios
+  id                  String   @id @default(cuid())
+  name                String
+  businessType        String // 'consultorio', 'peluqueria', 'tecnico', 'tienda'
+  whatsappPhone       String? // número de WhatsApp del negocio
+  isActive            Boolean  @default(true)
+  modules             String[] @default([]) // módulos activos: ["appointments", "sales"]
+  botConfig           Json? // configuración del bot: labels, keywords, servicios
+  repairMarginPercent Float    @default(40) // margen de ganancia para repuestos
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users         User[]
-  customers     Customer[]
-  appointments  Appointment[]
-  businessHours BusinessHours[]
-  conversations ConversationState[]
-  templates     MessageTemplate[]
-  services      Service[]
-  employees     Employee[]
+  users            User[]
+  customers        Customer[]
+  appointments     Appointment[]
+  businessHours    BusinessHours[]
+  conversations    ConversationState[]
+  templates        MessageTemplate[]
+  services         Service[]
+  employees        Employee[]
   employeeServices EmployeeService[]
-  products      Product[]
-  sales         Sale[]
-  orders        Order[]
+  products         Product[]
+  sales            Sale[]
+  orders           Order[]
+  spareParts       SparePart[]
+  repairs          Repair[]
 }
 
 // ─── USER (admin/empleado del negocio) ───────────────────────────────────────
@@ -59,14 +62,14 @@ enum Role {
 // ─── CUSTOMER (paciente / cliente del negocio) ───────────────────────────────
 
 model Customer {
-  id         String  @id @default(cuid())
-  phone      String  // JID de WhatsApp (puede ser ID random de Meta, NO usar para wa.me)
-  realPhone  String? // teléfono real que declaró el paciente (usar para wa.me/ y contacto)
-  dni        String? // documento de identidad
-  address    String? // domicilio del paciente
-  name       String?
-  email      String?
-  notes      String?
+  id        String  @id @default(cuid())
+  phone     String // JID de WhatsApp (puede ser ID random de Meta, NO usar para wa.me)
+  realPhone String? // teléfono real que declaró el paciente (usar para wa.me/ y contacto)
+  dni       String? // documento de identidad
+  address   String? // domicilio del paciente
+  name      String?
+  email     String?
+  notes     String?
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -134,7 +137,7 @@ model EmployeeService {
 
 model Appointment {
   id           String            @id @default(cuid())
-  date         DateTime          // fecha y hora del turno
+  date         DateTime // fecha y hora del turno
   durationMin  Int               @default(30) // duración en minutos
   status       AppointmentStatus @default(PENDING)
   notes        String?
@@ -156,19 +159,19 @@ model Appointment {
 }
 
 enum AppointmentStatus {
-  PENDING    // esperando confirmación
-  CONFIRMED  // confirmado
-  CANCELLED  // cancelado
-  COMPLETED  // atendido
+  PENDING // esperando confirmación
+  CONFIRMED // confirmado
+  CANCELLED // cancelado
+  COMPLETED // atendido
 }
 
 // ─── BUSINESS HOURS (horarios de atención) ───────────────────────────────────
 
 model BusinessHours {
   id         String  @id @default(cuid())
-  dayOfWeek  Int     // 0=Domingo, 1=Lunes, ..., 6=Sábado
-  openTime   String  // mañana: "09:00"
-  closeTime  String  // mañana: "13:00"
+  dayOfWeek  Int // 0=Domingo, 1=Lunes, ..., 6=Sábado
+  openTime   String // mañana: "09:00"
+  closeTime  String // mañana: "13:00"
   openTime2  String? // tarde: "16:00" (null = sin turno partido)
   closeTime2 String? // tarde: "20:00"
   isOpen     Boolean @default(true)
@@ -183,10 +186,10 @@ model BusinessHours {
 // ─── PLANTILLAS DE MENSAJES DEL BOT ──────────────────────────────────────────
 
 model MessageTemplate {
-  id       String @id @default(cuid())
-  key      String // 'welcome', 'confirmed', 'reminder', 'cancelled', 'no_availability'
-  name     String // nombre visible: "Mensaje de bienvenida"
-  body     String // texto del mensaje (puede tener variables como {{nombre}}, {{fecha}})
+  id   String @id @default(cuid())
+  key  String // 'welcome', 'confirmed', 'reminder', 'cancelled', 'no_availability'
+  name String // nombre visible: "Mensaje de bienvenida"
+  body String // texto del mensaje (puede tener variables como {{nombre}}, {{fecha}})
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -200,22 +203,23 @@ model MessageTemplate {
 // ─── PRODUCT (producto del kiosco/tienda / ítem del menú) ────────────────────
 
 model Product {
-  id        String  @id @default(cuid())
-  name      String
-  price     Float   @default(0)
-  cost      Float   @default(0)
-  stock     Int     @default(-1) // -1 = sin control de stock
-  category  String?
-  barcode   String? // EAN-13, UPC-A, Code-128, etc.
-  isActive  Boolean @default(true)
+  id       String  @id @default(cuid())
+  name     String
+  price    Float   @default(0)
+  cost     Float   @default(0)
+  stock    Int     @default(-1) // -1 = sin control de stock
+  category String?
+  barcode  String? // EAN-13, UPC-A, Code-128, etc.
+  isActive Boolean @default(true)
 
-  tenantId  String
-  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   saleItems  SaleItem[]
   orderItems OrderItem[]
 
   createdAt DateTime @default(now())
+
   @@unique([name, tenantId])
   @@unique([barcode, tenantId])
 }
@@ -223,13 +227,13 @@ model Product {
 // ─── SALE (venta) ─────────────────────────────────────────────────────────────
 
 model Sale {
-  id        String     @id @default(cuid())
-  total     Float
-  notes     String?
-  items     SaleItem[]
+  id    String     @id @default(cuid())
+  total Float
+  notes String?
+  items SaleItem[]
 
-  tenantId  String
-  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 }
@@ -237,14 +241,14 @@ model Sale {
 // ─── SALE ITEM (ítem de una venta) ───────────────────────────────────────────
 
 model SaleItem {
-  id        String  @id @default(cuid())
-  name      String  // snapshot del nombre al momento de vender
-  price     Float
-  quantity  Int     @default(1)
-  total     Float
+  id       String @id @default(cuid())
+  name     String // snapshot del nombre al momento de vender
+  price    Float
+  quantity Int    @default(1)
+  total    Float
 
   saleId    String
-  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  sale      Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
   productId String?
   product   Product? @relation(fields: [productId], references: [id])
 }
@@ -252,26 +256,26 @@ model SaleItem {
 // ─── ORDER (pedido de delivery / retiro / local) ─────────────────────────────
 
 enum OrderType {
-  DELIVERY  // envío a domicilio
-  PICKUP    // retira el cliente
-  LOCAL     // consume en el local
+  DELIVERY // envío a domicilio
+  PICKUP // retira el cliente
+  LOCAL // consume en el local
 }
 
 enum OrderStatus {
-  PENDING    // recibido, sin confirmar
-  CONFIRMED  // confirmado por el negocio
-  PREPARING  // en preparación
-  READY      // listo para entregar/retirar
-  DELIVERED  // entregado
-  CANCELLED  // cancelado
+  PENDING // recibido, sin confirmar
+  CONFIRMED // confirmado por el negocio
+  PREPARING // en preparación
+  READY // listo para entregar/retirar
+  DELIVERED // entregado
+  CANCELLED // cancelado
 }
 
 model Order {
   id            String      @id @default(cuid())
-  number        Int         // número de pedido por tenant (1, 2, 3...)
+  number        Int // número de pedido por tenant (1, 2, 3...)
   customerName  String
   customerPhone String?
-  address       String?     // domicilio de entrega (solo delivery)
+  address       String? // domicilio de entrega (solo delivery)
   type          OrderType   @default(DELIVERY)
   status        OrderStatus @default(PENDING)
   notes         String?
@@ -286,15 +290,15 @@ model Order {
 }
 
 model OrderItem {
-  id        String  @id @default(cuid())
-  name      String
-  price     Float
-  quantity  Int     @default(1)
-  total     Float
-  notes     String? // ej: "sin cebolla"
+  id       String  @id @default(cuid())
+  name     String
+  price    Float
+  quantity Int     @default(1)
+  total    Float
+  notes    String? // ej: "sin cebolla"
 
   orderId   String
-  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId String?
   product   Product? @relation(fields: [productId], references: [id])
 }
@@ -309,7 +313,7 @@ model ConversationState {
   expiresAt DateTime // la conversación expira si el usuario no responde
 
   tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id])
 
@@ -317,4 +321,64 @@ model ConversationState {
   updatedAt DateTime @updatedAt
 
   @@unique([phone, tenantId])
+}
+
+// ─── SPARE PART (repuestos para servicio técnico) ────────────────────────────
+
+model SparePart {
+  id        String  @id @default(cuid())
+  brand     String // Marca (ej: Samsung, Apple)
+  model     String // Modelo exacto (ej: A54, iPhone 13)
+  name      String // Nombre del repuesto (ej: Pantalla, Batería)
+  costPrice Float // Costo de compra
+  sellPrice Float? // Precio de venta manual (sobrescribe el cálculo por margen)
+  category  String? // Categoría (Pantallas, Baterías, etc.)
+  isActive  Boolean @default(true)
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  repairs Repair[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([brand, model, name, tenantId]) // Para evitar duplicados al importar Excel
+}
+
+// ─── REPAIR (reparaciones ingresadas) ────────────────────────────────────────
+
+enum RepairStatus {
+  PENDING
+  DIAGNOSED
+  IN_PROGRESS
+  READY
+  DELIVERED
+}
+
+model Repair {
+  id          String       @id @default(cuid())
+  number      Int // Número correlativo por tenant
+  deviceBrand String // Marca del equipo
+  deviceModel String // Modelo del equipo
+  problem     String // Descripción del problema del cliente
+  diagnosis   String? // Diagnóstico del técnico
+  status      RepairStatus @default(PENDING)
+
+  sparePartId String?
+  sparePart   SparePart? @relation(fields: [sparePartId], references: [id])
+
+  laborCost     Float @default(0) // Costo de mano de obra
+  sparePartCost Float @default(0) // Costo del repuesto al momento de crear la reparación
+  total         Float @default(0) // Total a cobrar
+
+  customerName  String
+  customerPhone String
+  notes         String? // Notas internas
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
