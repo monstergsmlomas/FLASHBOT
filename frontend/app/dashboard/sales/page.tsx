@@ -587,7 +587,7 @@ export default function SalesPage() {
                 </div>
 
                 {/* Cart footer */}
-                <div style={{ padding: "16px 16px 20px", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                <div className="pb-[88px] md:pb-5" style={{ paddingTop: "16px", paddingLeft: "16px", paddingRight: "16px", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
                     <span style={{ fontSize: "13px", fontWeight: 700, color: "#64748b" }}>Total</span>
                     <span style={{ fontSize: "24px", fontWeight: 800, color: "#22c55e", textShadow: "0 0 16px rgba(34,197,94,0.4)" }}>{fmt(cartTotal)}</span>

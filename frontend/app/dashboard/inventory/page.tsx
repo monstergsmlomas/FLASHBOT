@@ -620,7 +620,7 @@ export default function InventoryPage() {
             </div>
 
             {/* Drawer footer */}
-            <div style={{ padding: "20px 24px", borderTop: "1px solid rgba(255,255,255,0.07)", display: "flex", gap: "10px" }}>
+            <div className="pb-[88px] md:pb-5" style={{ paddingTop: "20px", paddingLeft: "24px", paddingRight: "24px", borderTop: "1px solid rgba(255,255,255,0.07)", display: "flex", gap: "10px" }}>
               <button
                 onClick={() => setShowModal(false)}
                 style={{ flex: 1, height: "42px", borderRadius: "10px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#94a3b8", fontSize: "13px", fontWeight: 600, cursor: "pointer", transition: "all 0.2s" }}
