@@ -50,6 +50,27 @@ export class RepairsService {
     });
   }
 
+  // ── ESTADÍSTICAS ──────────────────────────────────────────────────────────
+
+  async getStats(tenantId: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const repairs = await this.prisma.repair.findMany({
+      where: { tenantId },
+    });
+
+    const enteredToday = repairs.filter(r => r.createdAt >= today).length;
+    const ready = repairs.filter(r => r.status === 'READY').length;
+    const projectedIncome = repairs.filter(r => r.status !== 'DELIVERED').reduce((sum, r) => sum + (r.total || 0), 0);
+
+    return {
+      enteredToday,
+      ready,
+      projectedIncome,
+    };
+  }
+
   // ── OBTENER UNA ───────────────────────────────────────────────────────────
 
   /** Obtiene el detalle completo de una reparación validando pertenencia al tenant */

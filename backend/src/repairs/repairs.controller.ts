@@ -38,6 +38,12 @@ export class RepairsController {
     return this.repairsService.findAll(user.tenantId);
   }
 
+  // ── GET /api/v1/repairs/stats ─────────────────────────────────────────────
+  @Get('stats')
+  getStats(@CurrentUser() user: JwtUser) {
+    return this.repairsService.getStats(user.tenantId);
+  }
+
   // ── GET /api/v1/repairs/:id ───────────────────────────────────────────────
   /** Detalle completo de una reparación */
   @Get(':id')
