@@ -17,7 +17,8 @@ model Tenant {
   isActive            Boolean  @default(true)
   modules             String[] @default([]) // módulos activos: ["appointments", "sales"]
   botConfig           Json? // configuración del bot: labels, keywords, servicios
-  categoryMargins     Json    @default("{\"_default\": 40}") // márgenes por categoría de repuesto: {"Baterías": 40, "Módulos": 50, "_default": 40}
+  categoryMargins     Json    @default("{\"_default\": 40}") // % ganancia por categoría: {"Baterías": 120, "Módulos": 80, "_default": 40}
+  brandExtras         Json    @default("{}") // monto fijo adicional por marca: {"Samsung": 22, "Apple": 50}
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

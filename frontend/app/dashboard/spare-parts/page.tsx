@@ -66,18 +66,21 @@ const fmt = (n: number) =>
 
 // ── Componente principal ───────────────────────────────────────────────────────
 
-interface CategoryMargins {
-  [category: string]: number;
-}
-
 export default function SparePartsPage() {
   const [parts, setParts]       = useState<SparePart[]>([]);
   const [search, setSearch]     = useState("");
-  const [categoryMargins, setCategoryMargins] = useState<CategoryMargins>({ _default: 40 });
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [newMarginValue, setNewMarginValue] = useState<string>("");
+
+  // Márgenes por categoría (%) y extras por marca ($)
+  const [categoryMargins, setCategoryMargins] = useState<Record<string, number>>({ _default: 40 });
+  const [brandExtras, setBrandExtras]         = useState<Record<string, number>>({});
   const [savedMargin, setSavedMargin] = useState(false);
   const [savingMargins, setSavingMargins] = useState(false);
+
+  // Campos para agregar nueva fila en cada tabla
+  const [newCatName, setNewCatName]   = useState("");
+  const [newCatPct,  setNewCatPct]    = useState("");
+  const [newBrandName, setNewBrandName] = useState("");
+  const [newBrandAmt,  setNewBrandAmt]  = useState("");
   const [importing, setImporting]     = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -117,14 +120,9 @@ export default function SparePartsPage() {
 
   useEffect(() => {
     load();
-    // Cargar márgenes por categoría desde settings
     api.get("/settings").then((r) => {
-      if (r.data?.categoryMargins != null) {
-        setCategoryMargins(r.data.categoryMargins);
-      } else if (r.data?.repairMarginPercent != null) {
-        // Compatibilidad hacia atrás con el margen global antiguo
-        setCategoryMargins({ _default: r.data.repairMarginPercent });
-      }
+      if (r.data?.categoryMargins) setCategoryMargins(r.data.categoryMargins);
+      if (r.data?.brandExtras)     setBrandExtras(r.data.brandExtras);
     }).catch(() => {});
   }, []);
 
@@ -145,12 +143,12 @@ export default function SparePartsPage() {
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
-  /** Calcula el precio de venta efectivo usando sellPrice manual o el margen por categoría */
+  /** Calcula el precio de venta: costo * (1 + margen_categoría%) + extra_marca$ */
   const getSellPrice = (part: SparePart): number => {
     if (part.sellPrice != null) return part.sellPrice;
-    const categoryName = part.category ?? '_default';
-    const margin = categoryMargins[categoryName] ?? categoryMargins['_default'] ?? 40;
-    return part.costPrice * (1 + margin / 100);
+    const margin = categoryMargins[part.category ?? '_default'] ?? categoryMargins['_default'] ?? 40;
+    const extra  = brandExtras[part.brand] ?? 0;
+    return part.costPrice * (1 + margin / 100) + extra;
   };
 
   const filtered = parts.filter(
@@ -166,46 +164,31 @@ export default function SparePartsPage() {
   const handleSaveMargins = async () => {
     setSavingMargins(true);
     try {
-      await api.patch("/settings", { categoryMargins });
+      await api.patch("/settings", { categoryMargins, brandExtras });
       setSavedMargin(true);
       setTimeout(() => setSavedMargin(false), 2200);
     } catch (err: any) {
-      setSaveError(err?.response?.data?.message ?? "Error al guardar los márgenes");
+      setSaveError(err?.response?.data?.message ?? "Error al guardar");
       setTimeout(() => setSaveError(""), 3000);
     } finally {
       setSavingMargins(false);
     }
   };
 
-  const handleAddCategoryMargin = () => {
-    if (!newCategoryName.trim() || !newMarginValue) {
-      setSaveError("Completá categoría y margen");
-      return;
-    }
-    const margin = parseInt(newMarginValue, 10);
-    if (isNaN(margin) || margin < 0 || margin > 500) {
-      setSaveError("El margen debe ser un número entre 0 y 500");
-      return;
-    }
-    setCategoryMargins(prev => ({
-      ...prev,
-      [newCategoryName.trim()]: margin
-    }));
-    setNewCategoryName("");
-    setNewMarginValue("");
-    setSaveError("");
+  const addCategoryRow = () => {
+    if (!newCatName.trim() || !newCatPct) return;
+    const pct = parseInt(newCatPct, 10);
+    if (isNaN(pct) || pct < 0) return;
+    setCategoryMargins(prev => ({ ...prev, [newCatName.trim()]: pct }));
+    setNewCatName(""); setNewCatPct("");
   };
 
-  const handleDeleteCategoryMargin = (category: string) => {
-    if (category === '_default') {
-      setSaveError("No puedes eliminar el margen por defecto");
-      return;
-    }
-    setCategoryMargins(prev => {
-      const updated = { ...prev };
-      delete updated[category];
-      return updated;
-    });
+  const addBrandRow = () => {
+    if (!newBrandName.trim() || !newBrandAmt) return;
+    const amt = parseFloat(newBrandAmt);
+    if (isNaN(amt)) return;
+    setBrandExtras(prev => ({ ...prev, [newBrandName.trim()]: amt }));
+    setNewBrandName(""); setNewBrandAmt("");
   };
 
   const handleImportExcel = async (file: File) => {
@@ -361,81 +344,154 @@ export default function SparePartsPage() {
           </div>
         </div>
 
-        {/* ── Márgenes por categoría ────────────────────────────────────────── */}
+        {/* ── Configuración de precios ──────────────────────────────────────── */}
         <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "14px", padding: "20px", marginBottom: "20px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
-            <TrendingUp size={16} color="#4ade80" />
-            <span style={{ fontSize: "13px", fontWeight: 600, color: "#94a3b8" }}>Márgenes de Ganancia por Categoría</span>
-          </div>
-
-          {/* Listado actual de márgenes */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "12px", marginBottom: "16px" }}>
-            {Object.entries(categoryMargins).map(([category, margin]) => (
-              <div key={category} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: "10px" }}>
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontSize: "12px", fontWeight: 600, color: "white" }}>
-                    {category === "_default" ? "Por Defecto" : category}
-                  </p>
-                  <p style={{ margin: "2px 0 0", fontSize: "13px", fontWeight: 700, color: "#4ade80" }}>{margin}%</p>
-                </div>
-                {category !== "_default" && (
-                  <button
-                    onClick={() => handleDeleteCategoryMargin(category)}
-                    style={{ padding: "4px 8px", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "6px", color: "#f87171", cursor: "pointer", fontSize: "12px" }}
-                  >
-                    Eliminar
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Agregar nueva categoría */}
-          <div style={{ display: "flex", gap: "10px", marginBottom: "12px" }}>
-            <input
-              type="text"
-              placeholder="Ej: Baterías, Módulos, Pines de carga"
-              value={newCategoryName}
-              onChange={(e) => setNewCategoryName(e.target.value)}
-              style={{ ...inputStyle, flex: 1, height: "38px" }}
-              onFocus={onInputFocus}
-              onBlur={onInputBlur}
-            />
-            <input
-              type="number"
-              min={0}
-              max={500}
-              placeholder="%"
-              value={newMarginValue}
-              onChange={(e) => setNewMarginValue(e.target.value)}
-              style={{ ...inputStyle, width: "70px", height: "38px", textAlign: "center" }}
-              onFocus={onInputFocus}
-              onBlur={onInputBlur}
-            />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", marginBottom: "20px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <TrendingUp size={16} color="#4ade80" />
+              <span style={{ fontSize: "13px", fontWeight: 600, color: "#94a3b8" }}>Configuración de Precios</span>
+            </div>
             <button
-              onClick={handleAddCategoryMargin}
-              style={{ padding: "0 16px", borderRadius: "10px", background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.3)", color: "#4ade80", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}
+              onClick={handleSaveMargins}
+              disabled={savingMargins}
+              style={{ display: "flex", alignItems: "center", gap: "7px", padding: "0 18px", height: "36px", borderRadius: "9px", background: savingMargins ? "rgba(34,197,94,0.3)" : "linear-gradient(135deg, #166534, #15803d)", border: "1px solid rgba(34,197,94,0.4)", color: "white", cursor: savingMargins ? "not-allowed" : "pointer", fontSize: "13px", fontWeight: 700 }}
             >
-              + Agregar
+              <Save size={13} />
+              {savingMargins ? "Guardando..." : savedMargin ? "Guardado ✓" : "Guardar"}
             </button>
           </div>
 
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+
+            {/* Columna izquierda: % por categoría */}
+            <div>
+              <p style={{ margin: "0 0 10px", fontSize: "12px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                % Ganancia por Categoría
+              </p>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={{ padding: "6px 8px", fontSize: "10px", color: "#475569", textAlign: "left", fontWeight: 600 }}>Categoría</th>
+                    <th style={{ padding: "6px 8px", fontSize: "10px", color: "#475569", textAlign: "center", fontWeight: 600 }}>Margen %</th>
+                    <th style={{ width: "32px" }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(categoryMargins).map(([cat, pct]) => (
+                    <tr key={cat} style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                      <td style={{ padding: "8px", fontSize: "13px", color: "white", fontWeight: cat === "_default" ? 600 : 400 }}>
+                        {cat === "_default" ? "Por defecto" : cat}
+                      </td>
+                      <td style={{ padding: "8px", textAlign: "center" }}>
+                        <input
+                          type="number"
+                          value={pct}
+                          onChange={(e) => setCategoryMargins(prev => ({ ...prev, [cat]: parseInt(e.target.value) || 0 }))}
+                          style={{ ...inputStyle, width: "70px", height: "30px", textAlign: "center", fontSize: "13px", fontWeight: 700, color: "#4ade80" }}
+                          onFocus={onInputFocus} onBlur={onInputBlur}
+                        />
+                      </td>
+                      <td style={{ padding: "4px" }}>
+                        {cat !== "_default" && (
+                          <button onClick={() => setCategoryMargins(prev => { const n = {...prev}; delete n[cat]; return n; })}
+                            style={{ width: "26px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "none", color: "#475569", cursor: "pointer" }}>
+                            <X size={12} />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                    <td style={{ padding: "6px 4px" }}>
+                      <input type="text" placeholder="Nueva categoría" value={newCatName} onChange={(e) => setNewCatName(e.target.value)}
+                        style={{ ...inputStyle, height: "30px", fontSize: "12px" }} onFocus={onInputFocus} onBlur={onInputBlur}
+                        onKeyDown={(e) => e.key === "Enter" && addCategoryRow()}
+                      />
+                    </td>
+                    <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                      <input type="number" placeholder="%" value={newCatPct} onChange={(e) => setNewCatPct(e.target.value)}
+                        style={{ ...inputStyle, width: "70px", height: "30px", textAlign: "center", fontSize: "12px" }} onFocus={onInputFocus} onBlur={onInputBlur}
+                        onKeyDown={(e) => e.key === "Enter" && addCategoryRow()}
+                      />
+                    </td>
+                    <td style={{ padding: "4px" }}>
+                      <button onClick={addCategoryRow}
+                        style={{ width: "26px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.3)", borderRadius: "6px", color: "#4ade80", cursor: "pointer" }}>
+                        <Plus size={12} />
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Columna derecha: $ extra por marca */}
+            <div>
+              <p style={{ margin: "0 0 10px", fontSize: "12px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                Monto Extra por Marca ($)
+              </p>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={{ padding: "6px 8px", fontSize: "10px", color: "#475569", textAlign: "left", fontWeight: 600 }}>Marca</th>
+                    <th style={{ padding: "6px 8px", fontSize: "10px", color: "#475569", textAlign: "center", fontWeight: 600 }}>Extra $</th>
+                    <th style={{ width: "32px" }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.keys(brandExtras).length === 0 && (
+                    <tr><td colSpan={3} style={{ padding: "12px 8px", fontSize: "12px", color: "#334155", textAlign: "center" }}>Sin extras por marca</td></tr>
+                  )}
+                  {Object.entries(brandExtras).map(([brand, amt]) => (
+                    <tr key={brand} style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                      <td style={{ padding: "8px", fontSize: "13px", color: "white" }}>{brand}</td>
+                      <td style={{ padding: "8px", textAlign: "center" }}>
+                        <input
+                          type="number"
+                          value={amt}
+                          onChange={(e) => setBrandExtras(prev => ({ ...prev, [brand]: parseFloat(e.target.value) || 0 }))}
+                          style={{ ...inputStyle, width: "90px", height: "30px", textAlign: "center", fontSize: "13px", fontWeight: 700, color: "#60a5fa" }}
+                          onFocus={onInputFocus} onBlur={onInputBlur}
+                        />
+                      </td>
+                      <td style={{ padding: "4px" }}>
+                        <button onClick={() => setBrandExtras(prev => { const n = {...prev}; delete n[brand]; return n; })}
+                          style={{ width: "26px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "none", color: "#475569", cursor: "pointer" }}>
+                          <X size={12} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  <tr style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                    <td style={{ padding: "6px 4px" }}>
+                      <input type="text" placeholder="Ej: Samsung" value={newBrandName} onChange={(e) => setNewBrandName(e.target.value)}
+                        style={{ ...inputStyle, height: "30px", fontSize: "12px" }} onFocus={onInputFocus} onBlur={onInputBlur}
+                        onKeyDown={(e) => e.key === "Enter" && addBrandRow()}
+                      />
+                    </td>
+                    <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                      <input type="number" placeholder="$" value={newBrandAmt} onChange={(e) => setNewBrandAmt(e.target.value)}
+                        style={{ ...inputStyle, width: "90px", height: "30px", textAlign: "center", fontSize: "12px" }} onFocus={onInputFocus} onBlur={onInputBlur}
+                        onKeyDown={(e) => e.key === "Enter" && addBrandRow()}
+                      />
+                    </td>
+                    <td style={{ padding: "4px" }}>
+                      <button onClick={addBrandRow}
+                        style={{ width: "26px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", borderRadius: "6px", color: "#60a5fa", cursor: "pointer" }}>
+                        <Plus size={12} />
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           {saveError && (
-            <div style={{ marginBottom: "12px", padding: "8px 12px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "8px", color: "#f87171", fontSize: "12px" }}>
+            <div style={{ marginTop: "12px", padding: "8px 12px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "8px", color: "#f87171", fontSize: "12px" }}>
               {saveError}
             </div>
           )}
-
-          <button
-            onClick={handleSaveMargins}
-            disabled={savingMargins}
-            style={{ padding: "0 16px", height: "40px", borderRadius: "10px", background: savingMargins ? "rgba(34,197,94,0.3)" : "linear-gradient(135deg, #166534, #15803d)", border: "1px solid rgba(34,197,94,0.4)", color: "white", cursor: savingMargins ? "not-allowed" : "pointer", fontSize: "13px", fontWeight: 700, boxShadow: "0 0 20px rgba(34,197,94,0.2)", transition: "all 0.2s" }}
-            onMouseEnter={(e) => { if (!savingMargins) e.currentTarget.style.boxShadow = "0 0 30px rgba(34,197,94,0.4)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0 0 20px rgba(34,197,94,0.2)"; }}
-          >
-            <Save className="h-3.5 w-3.5" style={{ display: "inline-block", marginRight: "6px" }} />
-            {savingMargins ? "Guardando..." : savedMargin ? "Guardado ✓" : "Guardar márgenes"}
-          </button>
         </div>
 
         {/* ── Resultado importación ─────────────────────────────────────────── */}

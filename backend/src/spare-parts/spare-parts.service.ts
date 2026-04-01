@@ -26,6 +26,28 @@ interface ExcelRow {
   [key: string]: unknown;
 }
 
+// ── Auto-categorización por palabras clave ──────────────────────────────────
+const CATEGORY_KEYWORDS: Array<{ category: string; keywords: string[] }> = [
+  { category: 'Módulos con marco',  keywords: ['con marco', 'marco negro', 'marco blanco', 'marco gris', 'incell con marco', 'oled con marco'] },
+  { category: 'Módulos',           keywords: ['modulo', 'módulo', 'pantalla', 'display', 'lcd', 'oled', 'incell', 'amoled'] },
+  { category: 'Baterías',          keywords: ['bateria', 'batería', 'battery', 'baterias'] },
+  { category: 'Pines de carga',    keywords: ['pin de carga', 'conector de carga', 'puerto usb', 'lightning', 'type-c', 'type c', 'micro usb', 'pin carga'] },
+  { category: 'Carcasas',          keywords: ['carcasa', 'tapa trasera', 'back cover', 'housing', 'chasis'] },
+  { category: 'Flex',              keywords: ['flex', 'cable flex', 'ribbon'] },
+  { category: 'Cámaras',           keywords: ['camara', 'cámara', 'camera', 'lente'] },
+  { category: 'Parlantes',         keywords: ['parlante', 'altavoz', 'speaker', 'auricular', 'earpiece'] },
+  { category: 'Micrófonos',        keywords: ['microfono', 'micrófono', 'mic'] },
+];
+
+function detectCategory(partName: string): string | null {
+  const lower = partName.toLowerCase();
+  // Orden importa: "módulos con marco" debe evaluarse ANTES que "módulos"
+  for (const { category, keywords } of CATEGORY_KEYWORDS) {
+    if (keywords.some((kw) => lower.includes(kw))) return category;
+  }
+  return null;
+}
+
 @Injectable()
 export class SparePartsService {
   constructor(private prisma: PrismaService) {}
@@ -49,13 +71,11 @@ export class SparePartsService {
     return part;
   }
 
-  /** Crea un nuevo repuesto */
+  /** Crea un nuevo repuesto, auto-detectando la categoría si no viene */
   create(tenantId: string, dto: SparePartDto) {
+    const category = dto.category?.trim() || detectCategory(dto.name) || undefined;
     return this.prisma.sparePart.create({
-      data: {
-        ...dto,
-        tenantId,
-      },
+      data: { ...dto, category, tenantId },
     });
   }
 
@@ -151,15 +171,17 @@ export class SparePartsService {
           },
         });
 
+        const category = detectCategory(name) ?? undefined;
+
         if (existing) {
           await this.prisma.sparePart.update({
             where: { id: existing.id },
-            data: { costPrice, isActive: true },
+            data: { costPrice, isActive: true, ...(category && !existing.category ? { category } : {}) },
           });
           updated++;
         } else {
           await this.prisma.sparePart.create({
-            data: { brand, model, name, costPrice, tenantId },
+            data: { brand, model, name, costPrice, category, tenantId },
           });
           created++;
         }

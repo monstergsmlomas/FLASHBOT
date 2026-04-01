@@ -684,21 +684,23 @@ REGLAS GENERALES:
             };
           }
 
-          // 2. Obtener los márgenes por categoría del tenant
+          // 2. Obtener márgenes por categoría y extras por marca
           const tenantData = await (this.prisma.tenant as any).findUnique({
             where: { id: tenantId },
-            select: { categoryMargins: true },
+            select: { categoryMargins: true, brandExtras: true },
           });
           const categoryMargins = (tenantData?.categoryMargins as Record<string, number>) ?? { _default: 40 };
+          const brandExtras = (tenantData?.brandExtras as Record<string, number>) ?? {};
 
           // 3. Formatear resultados con precio de venta calculado
           const results = parts.map((p) => {
-            // Obtener el margen para esta categoría, o usar el default
-            const categoryName = p.category ?? '_default';
-            const margin = categoryMargins[categoryName] ?? categoryMargins['_default'] ?? 40;
-
-            // Si el repuesto tiene precio de venta manual, lo usa; si no, calcula por margen
-            const sellPrice = p.sellPrice ?? p.costPrice * (1 + margin / 100);
+            if (p.sellPrice != null) {
+              return { id: p.id, brand: p.brand, model: p.model, part: p.name, category: p.category, sell_price: Math.round(p.sellPrice) };
+            }
+            const categoryKey = p.category ?? '_default';
+            const margin = categoryMargins[categoryKey] ?? categoryMargins['_default'] ?? 40;
+            const extra = brandExtras[p.brand] ?? 0;
+            const sellPrice = p.costPrice * (1 + margin / 100) + extra;
             return {
               id:         p.id,
               brand:      p.brand,
