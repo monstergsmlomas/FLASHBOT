@@ -18,6 +18,7 @@ import {
   User,
   Smartphone,
   Box,
+  Plus,
 } from "lucide-react";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -105,9 +106,21 @@ export default function RepairsPage() {
   const [repairs, setRepairs] = useState<Repair[]>([]);
   const [stats, setStats] = useState<RepairStats>({ enteredToday: 0, ready: 0, projectedIncome: 0 });
   const [search, setSearch] = useState("");
-  
+
   const [selectedRepair, setSelectedRepair] = useState<Repair | null>(null);
   const [advancingId, setAdvancingId] = useState<string | null>(null);
+
+  // Modal nueva reparación
+  const [showNewRepair, setShowNewRepair] = useState(false);
+  const [custName, setCustName] = useState("");
+  const [custPhone, setCustPhone] = useState("");
+  const [deviceBrand, setDeviceBrand] = useState("");
+  const [deviceModel, setDeviceModel] = useState("");
+  const [problem, setProblem] = useState("");
+  const [laborCost, setLaborCost] = useState<number | "">("");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   // ── Cargar datos ─────────────────────────────────────────────────────────────
 
@@ -145,6 +158,33 @@ export default function RepairsPage() {
       console.error("Error avanzando estado", err);
     } finally {
       setAdvancingId(null);
+    }
+  };
+
+  const handleCreateRepair = async () => {
+    setSaveError("");
+    if (!custName.trim()) { setSaveError("El nombre del cliente es obligatorio"); return; }
+    if (!deviceBrand.trim() || !deviceModel.trim()) { setSaveError("Marca y modelo del equipo son obligatorios"); return; }
+    if (!problem.trim()) { setSaveError("Descripción del problema es obligatoria"); return; }
+
+    setSaving(true);
+    try {
+      await api.post("/repairs", {
+        customerName: custName.trim(),
+        customerPhone: custPhone.trim() || undefined,
+        deviceBrand: deviceBrand.trim(),
+        deviceModel: deviceModel.trim(),
+        problem: problem.trim(),
+        laborCost: laborCost === "" ? 0 : Number(laborCost),
+        notes: notes.trim() || undefined,
+      });
+      setCustName(""); setCustPhone(""); setDeviceBrand(""); setDeviceModel(""); setProblem(""); setLaborCost(""); setNotes("");
+      setShowNewRepair(false);
+      await loadData();
+    } catch (err: any) {
+      setSaveError(err?.response?.data?.message || "Error al crear la reparación");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -193,6 +233,11 @@ export default function RepairsPage() {
               </p>
             </div>
           </div>
+          <button onClick={() => setShowNewRepair(true)} style={{ height: "38px", padding: "0 16px", borderRadius: "10px", background: "linear-gradient(135deg,#7c3aed,#6d28d9)", border: "none", color: "white", fontSize: "13px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", transition: "all 0.2s" }}
+            onMouseEnter={e => e.currentTarget.style.filter = "brightness(1.1)"}
+            onMouseLeave={e => e.currentTarget.style.filter = "brightness(1)"}>
+            <Plus size={15} /> Nueva Orden
+          </button>
         </div>
 
         {/* ── Stats row ─────────────────────────────────────────────────────── */}
@@ -358,6 +403,87 @@ export default function RepairsPage() {
           })}
         </div>
       </div>
+
+      {/* ── Modal Nueva Reparación ───────────────────────────────────────── */}
+      {showNewRepair && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}
+             onClick={e => { if (e.target === e.currentTarget) setShowNewRepair(false); }}>
+          <div style={{ width: "100%", maxWidth: "520px", background: "#0f0f1a", borderRadius: "20px 20px 0 0", maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
+            {/* Header */}
+            <div style={{ padding: "20px 20px 16px", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <p style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "white" }}>Nueva Orden de Reparación</p>
+                <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#64748b" }}>Registrá un nuevo equipo</p>
+              </div>
+              <button onClick={() => setShowNewRepair(false)} style={{ width: "32px", height: "32px", borderRadius: "8px", background: "rgba(255,255,255,0.05)", border: "none", color: "#94a3b8", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
+              {/* Cliente */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "#64748b", marginBottom: "6px", textTransform: "uppercase" }}>Nombre Cliente *</label>
+                  <input value={custName} onChange={e => setCustName(e.target.value)} placeholder="Juan García" style={{ ...inputStyle, height: "42px" }} onFocus={onInputFocus as any} onBlur={onInputBlur as any} />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "#64748b", marginBottom: "6px", textTransform: "uppercase" }}>Teléfono</label>
+                  <input value={custPhone} onChange={e => setCustPhone(e.target.value)} placeholder="11 1234-5678" style={{ ...inputStyle, height: "42px" }} onFocus={onInputFocus as any} onBlur={onInputBlur as any} />
+                </div>
+              </div>
+
+              {/* Equipo */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "#64748b", marginBottom: "6px", textTransform: "uppercase" }}>Marca *</label>
+                  <input value={deviceBrand} onChange={e => setDeviceBrand(e.target.value)} placeholder="Samsung" style={{ ...inputStyle, height: "42px" }} onFocus={onInputFocus as any} onBlur={onInputBlur as any} />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "#64748b", marginBottom: "6px", textTransform: "uppercase" }}>Modelo *</label>
+                  <input value={deviceModel} onChange={e => setDeviceModel(e.target.value)} placeholder="A54" style={{ ...inputStyle, height: "42px" }} onFocus={onInputFocus as any} onBlur={onInputBlur as any} />
+                </div>
+              </div>
+
+              {/* Problema */}
+              <div>
+                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "#64748b", marginBottom: "6px", textTransform: "uppercase" }}>Problema *</label>
+                <input value={problem} onChange={e => setProblem(e.target.value)} placeholder="Pantalla rota, batería muerta, etc." style={{ ...inputStyle, height: "42px" }} onFocus={onInputFocus as any} onBlur={onInputBlur as any} />
+              </div>
+
+              {/* Mano de obra */}
+              <div>
+                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "#64748b", marginBottom: "6px", textTransform: "uppercase" }}>Mano de Obra ($)</label>
+                <input type="number" value={laborCost} onChange={e => setLaborCost(e.target.value === "" ? "" : Number(e.target.value))} placeholder="0" min="0" style={{ ...inputStyle, height: "42px" }} onFocus={onInputFocus as any} onBlur={onInputBlur as any} />
+              </div>
+
+              {/* Notas */}
+              <div>
+                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "#64748b", marginBottom: "6px", textTransform: "uppercase" }}>Notas Internas</label>
+                <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Observaciones del técnico..." rows={3} style={{ ...inputStyle, padding: "10px 14px", resize: "none", height: "auto" }} onFocus={onInputFocus as any} onBlur={onInputBlur as any} />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="pb-[88px] md:pb-5" style={{ padding: "16px 20px", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+              {saveError && (
+                <div style={{ marginBottom: "10px", padding: "8px 12px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "8px", color: "#f87171", fontSize: "12px" }}>
+                  {saveError}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button onClick={() => { setShowNewRepair(false); setSaveError(""); }} style={{ flex: 1, height: "42px", borderRadius: "10px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#94a3b8", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>
+                  Cancelar
+                </button>
+                <button onClick={handleCreateRepair} disabled={saving} style={{ flex: 2, height: "42px", borderRadius: "10px", background: saving ? "rgba(124,58,237,0.4)" : "linear-gradient(135deg,#7c3aed,#6d28d9)", border: "none", color: "white", fontSize: "13px", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer" }}>
+                  {saving ? "Guardando..." : "Crear Orden"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Drawer Detalle Reparación ─────────────────────────────────────── */}
       {selectedRepair && (
