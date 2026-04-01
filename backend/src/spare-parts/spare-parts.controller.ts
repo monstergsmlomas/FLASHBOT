@@ -69,6 +69,13 @@ export class SparePartsController {
     return this.sparePartsService.create(req.user.tenantId, body);
   }
 
+  // ── POST /api/v1/spare-parts/recategorize ────────────────────────────────
+  /** Re-categoriza todas las piezas usando detección automática por nombre */
+  @Post('recategorize')
+  recategorizeAll(@Request() req: any) {
+    return this.sparePartsService.recategorizeAll(req.user.tenantId);
+  }
+
   // ── POST /api/v1/spare-parts/import ──────────────────────────────────────
   /**
    * Importa repuestos masivamente desde un archivo Excel.

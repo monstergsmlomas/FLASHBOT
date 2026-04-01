@@ -118,6 +118,22 @@ export default function SparePartsPage() {
     setRefreshing(false);
   };
 
+  const handleRecategorize = async () => {
+    setRefreshing(true);
+    try {
+      const { data } = await api.post("/spare-parts/recategorize");
+      await load();
+      if (data.updated > 0) {
+        setImportResult({ created: 0, updated: data.updated, errors: [] });
+        // Reuse importResult to show feedback
+      }
+    } catch (err: any) {
+      setSaveError("Error al re-categorizar");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   useEffect(() => {
     load();
     api.get("/settings").then((r) => {
@@ -308,6 +324,18 @@ export default function SparePartsPage() {
               title="Refrescar lista"
             >
               <RefreshCw size={14} style={{ animation: refreshing ? "spin 1s linear infinite" : "none" }} />
+            </button>
+
+            {/* Auto-categorizar existentes */}
+            <button
+              onClick={handleRecategorize}
+              disabled={refreshing}
+              style={{ display: "flex", alignItems: "center", gap: "7px", padding: "0 14px", height: "40px", borderRadius: "10px", background: "transparent", border: "1px solid rgba(255,255,255,0.12)", color: refreshing ? "#475569" : "#94a3b8", fontSize: "13px", fontWeight: 500, cursor: refreshing ? "not-allowed" : "pointer", transition: "all 0.2s" }}
+              onMouseEnter={(e) => { if (!refreshing) { e.currentTarget.style.borderColor = "rgba(124,58,237,0.4)"; e.currentTarget.style.color = "#a78bfa"; }}}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.color = "#94a3b8"; }}
+              title="Asigna categoría automáticamente según el nombre de cada pieza"
+            >
+              <Tag size={14} /> Auto-categorizar
             </button>
 
             {/* Importar Excel */}
@@ -508,7 +536,7 @@ export default function SparePartsPage() {
           }}>
             <div style={{ flex: 1 }}>
               <p style={{ margin: 0, fontSize: "13px", fontWeight: 600, color: importResult.errors.length > 0 ? "#fb923c" : "#4ade80" }}>
-                Importación completada — {importResult.created} creados, {importResult.updated} actualizados
+                {importResult.created > 0 ? `Importación completada — ${importResult.created} creadas, ${importResult.updated} actualizadas` : `Auto-categorización completada — ${importResult.updated} piezas categorizadas`}
               </p>
               {importResult.errors.length > 0 && (
                 <ul style={{ margin: "6px 0 0", paddingLeft: "16px", fontSize: "12px", color: "#94a3b8" }}>

@@ -71,6 +71,20 @@ export class SparePartsService {
     return part;
   }
 
+  /** Re-categoriza todas las piezas existentes del tenant usando las palabras clave */
+  async recategorizeAll(tenantId: string): Promise<{ updated: number }> {
+    const parts = await this.prisma.sparePart.findMany({ where: { tenantId } });
+    let updated = 0;
+    for (const part of parts) {
+      const category = detectCategory(part.name);
+      if (category && category !== part.category) {
+        await this.prisma.sparePart.update({ where: { id: part.id }, data: { category } });
+        updated++;
+      }
+    }
+    return { updated };
+  }
+
   /** Crea un nuevo repuesto, auto-detectando la categoría si no viene */
   create(tenantId: string, dto: SparePartDto) {
     const category = dto.category?.trim() || detectCategory(dto.name) || undefined;
