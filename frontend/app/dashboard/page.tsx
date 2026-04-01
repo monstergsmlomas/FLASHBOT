@@ -105,7 +105,7 @@ export default function DashboardPage() {
               {todayAppts.map((appt) => (
                 <div key={appt.id} className="flex items-center justify-between px-5 py-3.5 hover:bg-muted/30 transition-colors">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-white font-bold text-sm shadow-sm shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-linear-to-br from-green-400 to-emerald-600 flex items-center justify-center text-white font-bold text-sm shadow-sm shrink-0">
                       {(appt.customer?.name ?? appt.customer?.phone ?? "?")[0].toUpperCase()}
                     </div>
                     <div>

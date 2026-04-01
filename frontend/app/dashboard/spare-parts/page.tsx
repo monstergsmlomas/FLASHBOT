@@ -14,6 +14,7 @@ import {
   TrendingUp,
   PackageSearch,
   Tag,
+  RefreshCw,
 } from "lucide-react";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -73,8 +74,10 @@ export default function SparePartsPage() {
   const [importing, setImporting]     = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [editing, setEditing]   = useState<string | null>(null);
   const [editData, setEditData] = useState<Partial<SparePart>>({});
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null); // ID del repuesto a confirmar eliminación
 
   // Nuevo repuesto
   const [newBrand, setNewBrand]     = useState("");
@@ -90,8 +93,20 @@ export default function SparePartsPage() {
 
   // ── Cargar datos ─────────────────────────────────────────────────────────────
 
-  const load = () =>
-    api.get("/spare-parts").then((r) => setParts(r.data)).catch(() => {});
+  const load = async () => {
+    try {
+      const r = await api.get("/spare-parts");
+      setParts(r.data);
+    } catch (err) {
+      console.error("Error loading spare parts:", err);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     load();
@@ -102,6 +117,21 @@ export default function SparePartsPage() {
       }
     }).catch(() => {});
   }, []);
+
+  // Soporte para teclas de atajo
+  useEffect(() => {
+    const handleKeydown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (showAddModal) setShowAddModal(false);
+        if (deleteConfirm) setDeleteConfirm(null);
+      }
+      if (e.key === "Enter" && showAddModal && !saving) {
+        handleAddPart();
+      }
+    };
+    document.addEventListener("keydown", handleKeydown);
+    return () => document.removeEventListener("keydown", handleKeydown);
+  }, [showAddModal, deleteConfirm, saving, newBrand, newModel, newName, newCost]);
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -121,9 +151,14 @@ export default function SparePartsPage() {
   // ── Handlers ─────────────────────────────────────────────────────────────────
 
   const handleSaveMargin = async () => {
-    await api.patch("/settings/repair-margin", { repairMarginPercent: margin });
-    setSavedMargin(true);
-    setTimeout(() => setSavedMargin(false), 2200);
+    try {
+      await api.patch("/settings", { repairMarginPercent: margin });
+      setSavedMargin(true);
+      setTimeout(() => setSavedMargin(false), 2200);
+    } catch (err: any) {
+      setSaveError(err?.response?.data?.message ?? "Error al guardar el margen");
+      setTimeout(() => setSaveError(""), 3000);
+    }
   };
 
   const handleImportExcel = async (file: File) => {
@@ -187,8 +222,14 @@ export default function SparePartsPage() {
   };
 
   const deletePart = async (id: string) => {
-    await api.delete(`/spare-parts/${id}`);
-    load();
+    try {
+      await api.delete(`/spare-parts/${id}`);
+      setDeleteConfirm(null);
+      load();
+    } catch (err: any) {
+      setSaveError(err?.response?.data?.message ?? "Error al eliminar el repuesto");
+      setTimeout(() => setSaveError(""), 3000);
+    }
   };
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -198,6 +239,12 @@ export default function SparePartsPage() {
       style={{ minHeight: "100vh", background: "#0a0a0f", fontFamily: "inherit" }}
       className="px-4 md:px-7 py-8 pb-24"
     >
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
       {/* Ambient glows */}
       <div style={{ position: "fixed", top: "-10%", left: "-5%", width: "500px", height: "500px", background: "radial-gradient(circle, rgba(34,197,94,0.06) 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
       <div style={{ position: "fixed", bottom: "-5%", right: "0", width: "400px", height: "400px", background: "radial-gradient(circle, rgba(59,130,246,0.05) 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
@@ -221,6 +268,18 @@ export default function SparePartsPage() {
           </div>
 
           <div className="flex flex-wrap gap-2 items-center">
+            {/* Refrescar */}
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              style={{ display: "flex", alignItems: "center", gap: "7px", padding: "0 18px", height: "40px", borderRadius: "10px", background: "transparent", border: "1px solid rgba(255,255,255,0.12)", color: refreshing ? "#475569" : "#94a3b8", fontSize: "13px", fontWeight: 500, cursor: refreshing ? "not-allowed" : "pointer", transition: "all 0.2s", opacity: refreshing ? 0.6 : 1 }}
+              onMouseEnter={(e) => { if (!refreshing) { e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)"; e.currentTarget.style.color = "white"; }}}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.color = "#94a3b8"; }}
+              title="Refrescar lista"
+            >
+              <RefreshCw size={14} style={{ animation: refreshing ? "spin 1s linear infinite" : "none" }} />
+            </button>
+
             {/* Importar Excel */}
             <input
               ref={fileInputRef}
@@ -537,7 +596,7 @@ export default function SparePartsPage() {
                           <Pencil size={13} />
                         </button>
                         <button
-                          onClick={() => deletePart(part.id)}
+                          onClick={() => setDeleteConfirm(part.id)}
                           style={{ width: "30px", height: "30px", borderRadius: "8px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", color: "#64748b", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}
                           onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.12)"; e.currentTarget.style.borderColor = "rgba(239,68,68,0.3)"; e.currentTarget.style.color = "#f87171"; }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; e.currentTarget.style.color = "#64748b"; }}
@@ -690,6 +749,45 @@ export default function SparePartsPage() {
                   {saving ? "Guardando..." : <><Plus size={15} /> Agregar Repuesto</>}
                 </button>
               </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Confirmación de eliminación ───────────────────────────────────── */}
+      {deleteConfirm && (
+        <>
+          <div onClick={() => setDeleteConfirm(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)", zIndex: 40 }} />
+          <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", maxWidth: "400px", width: "90%", background: "#0d0d14", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "16px", padding: "24px", zIndex: 50, boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
+              <div style={{ width: "40px", height: "40px", borderRadius: "12px", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <X size={20} color="#f87171" />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "white" }}>Eliminar repuesto</h3>
+                <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#475569" }}>Esta acción no se puede deshacer</p>
+              </div>
+            </div>
+            <p style={{ margin: "0 0 20px", fontSize: "13px", color: "#94a3b8" }}>
+              ¿Estás seguro de que querés eliminar este repuesto? Se marcará como inactivo pero los datos se conservarán.
+            </p>
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                style={{ flex: 1, height: "40px", borderRadius: "10px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#94a3b8", fontSize: "13px", fontWeight: 600, cursor: "pointer", transition: "all 0.2s" }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => deletePart(deleteConfirm)}
+                style={{ flex: 1, height: "40px", borderRadius: "10px", background: "linear-gradient(135deg, #7f1d1d, #991b1b)", border: "1px solid rgba(239,68,68,0.4)", color: "white", fontSize: "13px", fontWeight: 700, cursor: "pointer", boxShadow: "0 0 20px rgba(239,68,68,0.2)", transition: "all 0.2s" }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 0 30px rgba(239,68,68,0.4)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0 0 20px rgba(239,68,68,0.2)"; e.currentTarget.style.transform = "translateY(0)"; }}
+              >
+                Eliminar
+              </button>
             </div>
           </div>
         </>

@@ -26,6 +26,7 @@ export class TenantsService {
     name?: string;
     whatsappPhone?: string;
     botConfig?: Record<string, any>;
+    repairMarginPercent?: number;
     userName?: string;
   }) {
     const { userName, ...tenantData } = data;

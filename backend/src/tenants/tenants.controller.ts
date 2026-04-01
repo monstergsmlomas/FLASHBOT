@@ -22,7 +22,13 @@ export class TenantsController {
 
   // PATCH /api/v1/settings - actualizar datos del negocio
   @Patch()
-  updateSettings(@CurrentUser() user: any, @Body() body: any) {
+  updateSettings(@CurrentUser() user: any, @Body() body: {
+    name?: string;
+    whatsappPhone?: string;
+    botConfig?: Record<string, any>;
+    repairMarginPercent?: number;
+    userName?: string;
+  }) {
     return this.service.updateSettings(user.tenantId, user.id, body);
   }
 

@@ -10,7 +10,7 @@ import {
   CalendarDays, Users, Settings, LogOut,
   LayoutDashboard, MessageCircle,
   Smartphone, ShoppingCart, Wrench, Package, UserCog, LayoutGrid,
-  Truck, UtensilsCrossed,
+  Truck, UtensilsCrossed, Lightbulb,
 } from "lucide-react";
 import { ModulesModal } from "@/components/ModulesModal";
 
@@ -24,6 +24,7 @@ const ALL_NAV_ITEMS = [
   { href: "/dashboard/orders",       label: "Pedidos",        icon: Truck,           module: "delivery",     exact: false },
   { href: "/dashboard/menu",         label: "Menú",           icon: UtensilsCrossed, module: "delivery",     exact: false },
   { href: "/dashboard/repairs",      label: "Reparaciones",   icon: Wrench,          module: "repairs",      exact: false },
+  { href: "/dashboard/spare-parts",  label: "Repuestos",      icon: Lightbulb,       module: "repairs",      exact: false },
   { href: "/dashboard/whatsapp",     label: "WhatsApp Bot",   icon: Smartphone,      module: null,           exact: false },
   { href: "/dashboard/settings",     label: "Configuración",  icon: Settings,        module: null,           exact: false },
 ];
