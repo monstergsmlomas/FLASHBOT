@@ -27,9 +27,17 @@ export class TenantsService {
     whatsappPhone?: string;
     botConfig?: Record<string, any>;
     repairMarginPercent?: number;
+    categoryMargins?: Record<string, number>;
     userName?: string;
   }) {
-    const { userName, ...tenantData } = data;
+    const { userName, repairMarginPercent, categoryMargins, ...tenantData } = data;
+
+    // Si se envía repairMarginPercent (compatibilidad hacia atrás), convertir a categoryMargins
+    if (repairMarginPercent != null) {
+      tenantData.categoryMargins = { _default: repairMarginPercent };
+    } else if (categoryMargins != null) {
+      tenantData.categoryMargins = categoryMargins;
+    }
 
     const [tenant] = await Promise.all([
       this.prisma.tenant.update({ where: { id: tenantId }, data: tenantData }),

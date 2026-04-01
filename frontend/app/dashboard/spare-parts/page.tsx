@@ -66,11 +66,18 @@ const fmt = (n: number) =>
 
 // ── Componente principal ───────────────────────────────────────────────────────
 
+interface CategoryMargins {
+  [category: string]: number;
+}
+
 export default function SparePartsPage() {
   const [parts, setParts]       = useState<SparePart[]>([]);
   const [search, setSearch]     = useState("");
-  const [margin, setMargin]     = useState<number>(40);
+  const [categoryMargins, setCategoryMargins] = useState<CategoryMargins>({ _default: 40 });
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newMarginValue, setNewMarginValue] = useState<string>("");
   const [savedMargin, setSavedMargin] = useState(false);
+  const [savingMargins, setSavingMargins] = useState(false);
   const [importing, setImporting]     = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -110,10 +117,13 @@ export default function SparePartsPage() {
 
   useEffect(() => {
     load();
-    // Cargar margen actual desde settings
+    // Cargar márgenes por categoría desde settings
     api.get("/settings").then((r) => {
-      if (r.data?.repairMarginPercent != null) {
-        setMargin(r.data.repairMarginPercent);
+      if (r.data?.categoryMargins != null) {
+        setCategoryMargins(r.data.categoryMargins);
+      } else if (r.data?.repairMarginPercent != null) {
+        // Compatibilidad hacia atrás con el margen global antiguo
+        setCategoryMargins({ _default: r.data.repairMarginPercent });
       }
     }).catch(() => {});
   }, []);
@@ -135,9 +145,12 @@ export default function SparePartsPage() {
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
-  /** Calcula el precio de venta efectivo usando sellPrice manual o el margen */
+  /** Calcula el precio de venta efectivo usando sellPrice manual o el margen por categoría */
   const getSellPrice = (part: SparePart): number => {
-    return part.sellPrice ?? part.costPrice * (1 + margin / 100);
+    if (part.sellPrice != null) return part.sellPrice;
+    const categoryName = part.category ?? '_default';
+    const margin = categoryMargins[categoryName] ?? categoryMargins['_default'] ?? 40;
+    return part.costPrice * (1 + margin / 100);
   };
 
   const filtered = parts.filter(
@@ -150,15 +163,49 @@ export default function SparePartsPage() {
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
 
-  const handleSaveMargin = async () => {
+  const handleSaveMargins = async () => {
+    setSavingMargins(true);
     try {
-      await api.patch("/settings", { repairMarginPercent: margin });
+      await api.patch("/settings", { categoryMargins });
       setSavedMargin(true);
       setTimeout(() => setSavedMargin(false), 2200);
     } catch (err: any) {
-      setSaveError(err?.response?.data?.message ?? "Error al guardar el margen");
+      setSaveError(err?.response?.data?.message ?? "Error al guardar los márgenes");
       setTimeout(() => setSaveError(""), 3000);
+    } finally {
+      setSavingMargins(false);
     }
+  };
+
+  const handleAddCategoryMargin = () => {
+    if (!newCategoryName.trim() || !newMarginValue) {
+      setSaveError("Completá categoría y margen");
+      return;
+    }
+    const margin = parseInt(newMarginValue, 10);
+    if (isNaN(margin) || margin < 0 || margin > 500) {
+      setSaveError("El margen debe ser un número entre 0 y 500");
+      return;
+    }
+    setCategoryMargins(prev => ({
+      ...prev,
+      [newCategoryName.trim()]: margin
+    }));
+    setNewCategoryName("");
+    setNewMarginValue("");
+    setSaveError("");
+  };
+
+  const handleDeleteCategoryMargin = (category: string) => {
+    if (category === '_default') {
+      setSaveError("No puedes eliminar el margen por defecto");
+      return;
+    }
+    setCategoryMargins(prev => {
+      const updated = { ...prev };
+      delete updated[category];
+      return updated;
+    });
   };
 
   const handleImportExcel = async (file: File) => {
@@ -191,7 +238,7 @@ export default function SparePartsPage() {
     setSaveError("");
     if (!newBrand.trim()) { setSaveError("La marca es obligatoria"); return; }
     if (!newModel.trim()) { setSaveError("El modelo es obligatorio"); return; }
-    if (!newName.trim())  { setSaveError("El nombre del repuesto es obligatorio"); return; }
+    if (!newName.trim())  { setSaveError("El nombre de la pieza es obligatorio"); return; }
     if (!newCost)         { setSaveError("El costo es obligatorio"); return; }
     setSaving(true);
     try {
@@ -259,10 +306,10 @@ export default function SparePartsPage() {
             </div>
             <div>
               <h1 style={{ margin: 0, fontSize: "26px", fontWeight: 800, background: "linear-gradient(135deg, #ffffff 0%, #94a3b8 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", letterSpacing: "-0.5px" }}>
-                Gestión de Repuestos
+                Lista Proveedor
               </h1>
               <p style={{ margin: "3px 0 0", fontSize: "13px", color: "#475569" }}>
-                Catálogo para el servicio técnico. {parts.length} repuesto{parts.length !== 1 ? "s" : ""} registrado{parts.length !== 1 ? "s" : ""}.
+                Precios de tu proveedor para presupuestar. {parts.length} pieza{parts.length !== 1 ? "s" : ""} cargada{parts.length !== 1 ? "s" : ""}.
               </p>
             </div>
           </div>
@@ -302,46 +349,92 @@ export default function SparePartsPage() {
               {importing ? "Importando..." : "Importar Excel"}
             </button>
 
-            {/* Agregar manual */}
+            {/* Agregar pieza manual */}
             <button
               onClick={() => setShowAddModal(true)}
               style={{ display: "flex", alignItems: "center", gap: "7px", padding: "0 18px", height: "40px", borderRadius: "10px", background: "linear-gradient(135deg, #166534, #15803d)", border: "1px solid rgba(34,197,94,0.4)", color: "white", fontSize: "13px", fontWeight: 600, cursor: "pointer", boxShadow: "0 0 20px rgba(34,197,94,0.2)", transition: "all 0.2s" }}
               onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 0 30px rgba(34,197,94,0.4)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0 0 20px rgba(34,197,94,0.2)"; e.currentTarget.style.transform = "translateY(0)"; }}
             >
-              <Plus size={14} /> Agregar manual
+              <Plus size={14} /> Agregar pieza
             </button>
           </div>
         </div>
 
-        {/* ── Margen de ganancia ────────────────────────────────────────────── */}
-        <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "14px", padding: "16px 20px", marginBottom: "20px", display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        {/* ── Márgenes por categoría ────────────────────────────────────────── */}
+        <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "14px", padding: "20px", marginBottom: "20px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
             <TrendingUp size={16} color="#4ade80" />
-            <span style={{ fontSize: "13px", fontWeight: 600, color: "#94a3b8" }}>Margen de Ganancia Global</span>
+            <span style={{ fontSize: "13px", fontWeight: 600, color: "#94a3b8" }}>Márgenes de Ganancia por Categoría</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+
+          {/* Listado actual de márgenes */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "12px", marginBottom: "16px" }}>
+            {Object.entries(categoryMargins).map(([category, margin]) => (
+              <div key={category} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: "10px" }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontSize: "12px", fontWeight: 600, color: "white" }}>
+                    {category === "_default" ? "Por Defecto" : category}
+                  </p>
+                  <p style={{ margin: "2px 0 0", fontSize: "13px", fontWeight: 700, color: "#4ade80" }}>{margin}%</p>
+                </div>
+                {category !== "_default" && (
+                  <button
+                    onClick={() => handleDeleteCategoryMargin(category)}
+                    style={{ padding: "4px 8px", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "6px", color: "#f87171", cursor: "pointer", fontSize: "12px" }}
+                  >
+                    Eliminar
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Agregar nueva categoría */}
+          <div style={{ display: "flex", gap: "10px", marginBottom: "12px" }}>
+            <input
+              type="text"
+              placeholder="Ej: Baterías, Módulos, Pines de carga"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              style={{ ...inputStyle, flex: 1, height: "38px" }}
+              onFocus={onInputFocus}
+              onBlur={onInputBlur}
+            />
             <input
               type="number"
               min={0}
               max={500}
-              value={margin}
-              onChange={(e) => setMargin(Number(e.target.value))}
-              style={{ ...inputStyle, width: "90px", height: "36px", textAlign: "center", fontSize: "15px", fontWeight: 700, color: "#4ade80" }}
+              placeholder="%"
+              value={newMarginValue}
+              onChange={(e) => setNewMarginValue(e.target.value)}
+              style={{ ...inputStyle, width: "70px", height: "38px", textAlign: "center" }}
               onFocus={onInputFocus}
               onBlur={onInputBlur}
             />
-            <span style={{ fontSize: "14px", color: "#475569" }}>%</span>
+            <button
+              onClick={handleAddCategoryMargin}
+              style={{ padding: "0 16px", borderRadius: "10px", background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.3)", color: "#4ade80", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}
+            >
+              + Agregar
+            </button>
           </div>
-          <p style={{ margin: 0, fontSize: "12px", color: "#334155", flex: 1 }}>
-            Se aplica sobre el costo cuando no hay precio de venta manual. Ej: costo $10.000 → venta <strong style={{ color: "#4ade80" }}>${Math.round(10000 * (1 + margin / 100)).toLocaleString("es-AR")}</strong>
-          </p>
+
+          {saveError && (
+            <div style={{ marginBottom: "12px", padding: "8px 12px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "8px", color: "#f87171", fontSize: "12px" }}>
+              {saveError}
+            </div>
+          )}
+
           <button
-            onClick={handleSaveMargin}
-            className={`btn-glass btn-glass-sm ${savedMargin ? "btn-glass-saved" : ""}`}
+            onClick={handleSaveMargins}
+            disabled={savingMargins}
+            style={{ padding: "0 16px", height: "40px", borderRadius: "10px", background: savingMargins ? "rgba(34,197,94,0.3)" : "linear-gradient(135deg, #166534, #15803d)", border: "1px solid rgba(34,197,94,0.4)", color: "white", cursor: savingMargins ? "not-allowed" : "pointer", fontSize: "13px", fontWeight: 700, boxShadow: "0 0 20px rgba(34,197,94,0.2)", transition: "all 0.2s" }}
+            onMouseEnter={(e) => { if (!savingMargins) e.currentTarget.style.boxShadow = "0 0 30px rgba(34,197,94,0.4)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0 0 20px rgba(34,197,94,0.2)"; }}
           >
-            <Save className="h-3.5 w-3.5" />
-            {savedMargin ? "Guardado ✓" : "Guardar margen"}
+            <Save className="h-3.5 w-3.5" style={{ display: "inline-block", marginRight: "6px" }} />
+            {savingMargins ? "Guardando..." : savedMargin ? "Guardado ✓" : "Guardar márgenes"}
           </button>
         </div>
 
@@ -396,7 +489,7 @@ export default function SparePartsPage() {
 
           {/* Header */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.5fr 120px 120px 120px 80px 90px", gap: "0", padding: "0 16px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)", minWidth: "860px" }}>
-            {["Marca", "Modelo", "Repuesto", "Costo", "P. de Venta", "Categoría", "Estado", "Acciones"].map((col, i) => (
+            {["Marca", "Modelo", "Pieza", "Costo", "P. de Venta", "Categoría", "Estado", "Acciones"].map((col, i) => (
               <div key={i} style={{ padding: "12px 8px", fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>
                 {col}
               </div>
@@ -408,10 +501,10 @@ export default function SparePartsPage() {
             <div style={{ padding: "70px 20px", textAlign: "center" }}>
               <PackageSearch size={44} color="rgba(255,255,255,0.07)" style={{ display: "block", margin: "0 auto 14px" }} />
               <p style={{ color: "#475569", fontSize: "14px", margin: 0 }}>
-                {search ? "Sin resultados para tu búsqueda" : "No hay repuestos cargados todavía"}
+                {search ? "Sin resultados para tu búsqueda" : "No hay piezas cargadas todavía"}
               </p>
               <p style={{ color: "#334155", fontSize: "12px", margin: "4px 0 0" }}>
-                {search ? "Intentá con otros términos" : 'Usá "Importar Excel" o "Agregar manual" para comenzar'}
+                {search ? "Intentá con otros términos" : 'Usá "Importar Excel" o "Agregar pieza" para comenzar'}
               </p>
             </div>
           ) : (
@@ -467,7 +560,7 @@ export default function SparePartsPage() {
                     )}
                   </div>
 
-                  {/* Nombre del repuesto */}
+                  {/* Nombre de la pieza */}
                   <div style={{ display: "flex", alignItems: "center", padding: "14px 8px" }}>
                     {isEditing ? (
                       <input
@@ -642,8 +735,8 @@ export default function SparePartsPage() {
                   <Plus size={16} color="#4ade80" />
                 </div>
                 <div>
-                  <h2 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "white" }}>Nuevo Repuesto</h2>
-                  <p style={{ margin: 0, fontSize: "12px", color: "#475569" }}>Completá los datos del repuesto</p>
+                  <h2 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "white" }}>Nueva Pieza</h2>
+                  <p style={{ margin: 0, fontSize: "12px", color: "#475569" }}>Agregá una pieza a tu lista</p>
                 </div>
               </div>
               <button
@@ -676,10 +769,10 @@ export default function SparePartsPage() {
                   <input value={newModel} onChange={(e) => setNewModel(e.target.value)} placeholder="Ej: A54, iPhone 13, G84" style={inputStyle} onFocus={onInputFocus} onBlur={onInputBlur} />
                 </div>
 
-                {/* Nombre del repuesto */}
+                {/* Nombre de la pieza */}
                 <div>
                   <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#64748b", marginBottom: "7px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                    Repuesto *
+                    Pieza *
                   </label>
                   <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Ej: Pantalla, Batería, Conector" style={inputStyle} onFocus={onInputFocus} onBlur={onInputBlur} />
                 </div>
@@ -696,7 +789,7 @@ export default function SparePartsPage() {
                     <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#64748b", marginBottom: "7px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                       P. Venta <span style={{ fontSize: "10px", color: "#334155", fontWeight: 400 }}>(opt.)</span>
                     </label>
-                    <input type="number" value={newSellPrice} onChange={(e) => setNewSellPrice(e.target.value)} placeholder={`Auto (${margin}%)`} style={inputStyle} onFocus={onInputFocus} onBlur={onInputBlur} />
+                    <input type="number" value={newSellPrice} onChange={(e) => setNewSellPrice(e.target.value)} placeholder={`Auto (${categoryMargins['_default'] ?? 40}%)`} style={inputStyle} onFocus={onInputFocus} onBlur={onInputBlur} />
                   </div>
                 </div>
 
@@ -707,7 +800,7 @@ export default function SparePartsPage() {
                     <strong style={{ color: "#4ade80", fontSize: "14px" }}>
                       {newSellPrice
                         ? `$${Math.round(parseFloat(newSellPrice) || 0).toLocaleString("es-AR")} (manual)`
-                        : `$${Math.round((parseFloat(newCost) || 0) * (1 + margin / 100)).toLocaleString("es-AR")} (con ${margin}% de margen)`}
+                        : `$${Math.round((parseFloat(newCost) || 0) * (1 + (categoryMargins['_default'] ?? 40) / 100)).toLocaleString("es-AR")} (con ${categoryMargins['_default'] ?? 40}% de margen)`}
                     </strong>
                   </div>
                 )}
@@ -746,7 +839,7 @@ export default function SparePartsPage() {
                   onMouseEnter={(e) => { if (!saving) { e.currentTarget.style.boxShadow = "0 0 30px rgba(34,197,94,0.4)"; e.currentTarget.style.transform = "translateY(-1px)"; }}}
                   onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0 0 20px rgba(34,197,94,0.25)"; e.currentTarget.style.transform = "translateY(0)"; }}
                 >
-                  {saving ? "Guardando..." : <><Plus size={15} /> Agregar Repuesto</>}
+                  {saving ? "Guardando..." : <><Plus size={15} /> Agregar Pieza</>}
                 </button>
               </div>
             </div>

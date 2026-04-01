@@ -684,15 +684,19 @@ REGLAS GENERALES:
             };
           }
 
-          // 2. Obtener el margen del tenant para calcular precio de venta
-          const tenantData = await this.prisma.tenant.findUnique({
+          // 2. Obtener los márgenes por categoría del tenant
+          const tenantData = await (this.prisma.tenant as any).findUnique({
             where: { id: tenantId },
-            select: { repairMarginPercent: true },
+            select: { categoryMargins: true },
           });
-          const margin = tenantData?.repairMarginPercent ?? 40;
+          const categoryMargins = (tenantData?.categoryMargins as Record<string, number>) ?? { _default: 40 };
 
           // 3. Formatear resultados con precio de venta calculado
           const results = parts.map((p) => {
+            // Obtener el margen para esta categoría, o usar el default
+            const categoryName = p.category ?? '_default';
+            const margin = categoryMargins[categoryName] ?? categoryMargins['_default'] ?? 40;
+
             // Si el repuesto tiene precio de venta manual, lo usa; si no, calcula por margen
             const sellPrice = p.sellPrice ?? p.costPrice * (1 + margin / 100);
             return {
@@ -700,6 +704,7 @@ REGLAS GENERALES:
               brand:      p.brand,
               model:      p.model,
               part:       p.name,
+              category:   p.category,
               sell_price: Math.round(sellPrice),
             };
           });

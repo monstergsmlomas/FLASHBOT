@@ -27,6 +27,7 @@ export class TenantsController {
     whatsappPhone?: string;
     botConfig?: Record<string, any>;
     repairMarginPercent?: number;
+    categoryMargins?: Record<string, number>;
     userName?: string;
   }) {
     return this.service.updateSettings(user.tenantId, user.id, body);

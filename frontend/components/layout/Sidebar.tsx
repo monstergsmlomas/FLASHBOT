@@ -24,7 +24,7 @@ const ALL_NAV_ITEMS = [
   { href: "/dashboard/orders",       label: "Pedidos",        icon: Truck,           module: "delivery",     exact: false },
   { href: "/dashboard/menu",         label: "Menú",           icon: UtensilsCrossed, module: "delivery",     exact: false },
   { href: "/dashboard/repairs",      label: "Reparaciones",   icon: Wrench,          module: "repairs",      exact: false },
-  { href: "/dashboard/spare-parts",  label: "Repuestos",      icon: Lightbulb,       module: "repairs",      exact: false },
+  { href: "/dashboard/spare-parts",  label: "Lista Proveedor", icon: Lightbulb,       module: "repairs",      exact: false },
   { href: "/dashboard/whatsapp",     label: "WhatsApp Bot",   icon: Smartphone,      module: null,           exact: false },
   { href: "/dashboard/settings",     label: "Configuración",  icon: Settings,        module: null,           exact: false },
 ];
