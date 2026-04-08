@@ -1,4 +1,5 @@
 'use client';
+export const dynamic = 'force-dynamic';
 import { useState, useEffect, ChangeEvent, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/lib/supabase';
