@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation";
 import { 
   LayoutDashboard, 
   MessageSquare, 
-  Package, 
+  Package,
+  Archive,
   Users, 
   Settings, 
   LogOut, 
@@ -16,7 +17,8 @@ import {
 const MENU_ITEMS = [
   { name: "Métricas", icon: LayoutDashboard, href: "/dashboard" },
   { name: "Conversaciones", icon: MessageSquare, href: "/dashboard/chats" },
-  { name: "Catálogo", icon: Package, href: "/dashboard/products" },
+  { name: "Catálogo", icon: Package, href: "/dashboard/catalogo" },
+  { name: "Stock Propio", icon: Archive, href: "/dashboard/stock" },
   { name: "Clientes", icon: Users, href: "/dashboard/customers" },
   { name: "Configuración IA", icon: Settings, href: "/dashboard/settings" },
 ];
